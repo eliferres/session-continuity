@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 452" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" role="img" aria-labelledby="sc-demo-title">
+  <title id="sc-demo-title">A session nears its context ceiling, writes a full checkpoint, and a fresh session reads it back, verifies a cited fact against the live source, and continues at full depth.</title>
+  <style>
+    .l { opacity: 0; animation: fadein 0.45s ease-out forwards; }
+    @keyframes fadein { to { opacity: 1; } }
+    .d0  { animation-delay: 0.3s; }
+    .d1  { animation-delay: 1.0s; }
+    .d2  { animation-delay: 1.8s; }
+    .d3  { animation-delay: 2.5s; }
+    .d4  { animation-delay: 3.3s; }
+    .d5  { animation-delay: 4.1s; }
+    .d6  { animation-delay: 4.8s; }
+    .d7  { animation-delay: 5.5s; }
+    .d8  { animation-delay: 6.3s; }
+    .d9  { animation-delay: 7.0s; }
+    @media (prefers-reduced-motion: reduce) {
+      .l { animation: none; opacity: 1; }
+    }
+    .cmd { fill: #e6edf3; }
+    .dim { fill: #98a4b0; }
+    .usr { fill: #79c0ff; }
+    .ans { fill: #d2e0f0; }
+    .ok  { fill: #3fb950; }
+    .wrt { fill: #bc8cff; }
+    .wrn { fill: #d29922; }
+  </style>
+
+  <rect x="1" y="1" width="698" height="450" rx="12" fill="#0b0f14" stroke="#232b36"/>
+  <rect x="1" y="1" width="698" height="40" rx="12" fill="#11161d"/>
+  <rect x="1" y="27" width="698" height="14" fill="#11161d"/>
+  <circle cx="26" cy="21" r="6" fill="#ff5f57"/>
+  <circle cx="46" cy="21" r="6" fill="#febc2e"/>
+  <circle cx="66" cy="21" r="6" fill="#28c840"/>
+  <text x="90" y="26" font-size="14" class="dim">session 1 → context ceiling → session 2</text>
+
+  <text x="24" y="86"  class="l d0"><tspan class="wrn">◇ context 91% · approaching the ceiling</tspan></text>
+  <text x="24" y="114" class="l d1"><tspan class="wrt">✎ rewrite CHECKPOINT.md · in full</tspan></text>
+  <text x="24" y="142" class="l d2"><tspan class="dim">✎ archive .checkpoints/2026-03-11-1740-orders.md</tspan></text>
+  <text x="24" y="170" class="l d3"><tspan class="dim">◇ compacted</tspan></text>
+
+  <line x1="24" y1="196" x2="676" y2="196" stroke="#232b36"/>
+
+  <text x="24" y="232" class="l d4"><tspan class="ok">$</tspan> <tspan class="cmd">claude</tspan></text>
+  <text x="24" y="260" class="l d5"><tspan class="ok">⟲ RESUME AVAILABLE — CHECKPOINT.md (2026-03-11)</tspan></text>
+  <text x="24" y="288" class="l d6"><tspan class="usr">❯ continue</tspan></text>
+  <text x="24" y="316" class="l d7"><tspan class="dim">◇ read in full · 96 lines · then verify one claim</tspan></text>
+  <text x="24" y="344" class="l d8"><tspan class="dim">◇ pytest tests/test_orders_queries.py · 11 passed</tspan></text>
+  <text x="24" y="386" class="l d9"><tspan class="ans">Cents decision holds — fixing the query,</tspan></text>
+  <text x="24" y="414" class="l d9"><tspan class="ans">not the data. Thread 1 continues.</tspan></text>
+</svg>
