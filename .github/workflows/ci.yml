@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Lint the shipped example and template
+        run: python3 tools/checkpoint_lint.py CHECKPOINT-TEMPLATE.md examples/*.md
+      - name: Check the hook scripts parse
+        run: bash -n hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh
