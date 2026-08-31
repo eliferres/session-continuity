@@ -19,7 +19,10 @@ transcript=$(printf '%s' "$input" | python3 -c \
   'import json,sys;print(json.load(sys.stdin).get("transcript_path",""))' 2>/dev/null)
 stamp=$(date +%Y-%m-%d-%H%M%S)
 
-mkdir -p "$ARCHIVE/raw" || exit 0
+mkdir -p "$ARCHIVE/raw" 2>/dev/null || {
+  echo "precompact-checkpoint: cannot create $ARCHIVE — nothing archived this compaction" >&2
+  exit 0
+}
 
 if [ -f "$CHECKPOINT" ]; then
   cp "$CHECKPOINT" "$ARCHIVE/$stamp-checkpoint.md"
