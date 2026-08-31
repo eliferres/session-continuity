@@ -14,7 +14,12 @@ before wiring them; they write only inside your project directory.
 ```bash
 cp hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh /path/to/your/project/hooks/
 chmod +x /path/to/your/project/hooks/*.sh
+echo '.checkpoints/' >> /path/to/your/project/.gitignore
 ```
+
+The gitignore line matters: the archive holds raw session transcripts,
+which can contain anything you and the agent discussed — keep it out of
+version control.
 
 Then add this to `.claude/settings.json` in that project (or to
 `~/.claude/settings.json` to run everywhere):
@@ -68,8 +73,10 @@ Restart Claude Code, then check `/hooks` to confirm both are registered.
 It does not write the checkpoint. A shell script has no idea which
 decisions mattered or which dead end cost an hour — that judgment is the
 entire product, and it comes from the agent. The hook's job is narrower
-and achievable: guarantee that a compaction never destroys state silently,
-and leave enough breadcrumbs that the next session can tell what it lost.
+and achievable: as long as the archive directory is writable, a compaction
+never destroys state silently, and the breadcrumbs left behind let the
+next session tell what it lost. If the archive cannot be created, the hook
+says so on stderr and stays out of the way rather than blocking the session.
 
 If no checkpoint exists when a compaction fires, the hook writes a marker
 file saying so. An unmarked gap is the dangerous case: the next session
