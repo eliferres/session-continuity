@@ -2,11 +2,11 @@
 
 When an agent hits its context limit, the built-in fix is a summary, and a summary keeps the conclusions while dropping the decisions, paths, and dead ends behind them. session-continuity is a specified checkpoint file, hooks that catch the compaction you did not see coming, and a linter that checks the file. Two scripts wire it into Claude Code.
 
-The format and protocols are portable to any harness that can read files.
+The format and protocols work on any harness that reads files.
 
 ![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg)
 
-![A session nearing its context ceiling writes a full checkpoint; a fresh session reads it back, verifies a cited fact, and continues at depth](demo/resume.svg)
+![Illustration: a session nearing its context ceiling writes a full checkpoint; a fresh session reads it back, verifies a cited fact, and continues at depth](demo/resume.svg)
 
 ## Quick start
 

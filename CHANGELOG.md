@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+- Added macos-latest to the CI matrix alongside ubuntu-latest.
+
 ### Fixed
 - Fixed the install block to gitignore `.checkpoints/` and say why: the archive holds raw session transcripts.
 - Fixed the hook to report on stderr when it cannot create the archive, instead of exiting silently.
