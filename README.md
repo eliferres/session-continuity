@@ -1,16 +1,8 @@
 # session-continuity
 
-An AI agent that hits its context limit does not pause — it forgets. The
-built-in fix is a summary, and a summary is exactly the wrong shape: it
-keeps the conclusions and drops the decisions behind them, the exact
-paths, and the dead ends. The next session then relitigates everything
-you already paid for. This is the other approach: a specified checkpoint
-file, a protocol for writing and reading it, hooks that catch the
-compaction you did not see coming, and a linter that keeps the file
-honest.
+When an agent hits its context limit, the built-in fix is a summary, and a summary keeps the conclusions while dropping the decisions, paths, and dead ends behind them. session-continuity is a specified checkpoint file, hooks that catch the compaction you did not see coming, and a linter that checks the file. Two scripts wire it into Claude Code.
 
-Two small hook scripts wire it into Claude Code in about a minute. The
-format and protocols are portable to any harness that can read files.
+The format and protocols are portable to any harness that can read files.
 
 ![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg)
 
@@ -117,7 +109,7 @@ satisfy the requirement while reading like prose.
 ## The protocols, in one paragraph each
 
 **Write** at session end, when the context ceiling is close, before any
-deliberate compaction, and after each milestone — a checkpoint several
+deliberate compaction, and after each milestone: a checkpoint several
 ships behind is worse than none, because it is confidently wrong. Rewrite
 the whole file, drop a dated copy in `.checkpoints/`, and read the file
 back rather than trusting the write.
@@ -154,7 +146,7 @@ Four checks, each guarding a way a checkpoint actually fails:
    checkpoint looks complete and restores nothing.
 3. `updated:` is an absolute `YYYY-MM-DD` date, and no relative time word
    ("yesterday", "last week") appears in the prose. Code fences are
-   exempt — `git log --since=yesterday` is a command, not a claim.
+   exempt: `git log --since=yesterday` is a command, not a claim.
 4. Length sanity, advisory only: a three-line checkpoint of a long
    session is a summary wearing a checkpoint's headings.
 
@@ -172,7 +164,7 @@ cheap to write down, and writing it down is what turns a long project
 into one continuous session rather than a series of confident restarts.
 
 The companion repo [agent-memory-vault](https://github.com/eliferres/agent-memory-vault)
-covers the other half — durable cross-project memory — and ships a
+covers the other half (durable cross-project memory) and ships a
 minimal checkpoint file as one note in its vault; this repo is the deep
 version of that one file.
 
