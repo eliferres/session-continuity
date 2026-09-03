@@ -15,6 +15,6 @@ also updates `docs/anatomy.md` (the source of truth), the block quoted in
 the README, and `CHECKPOINT-TEMPLATE.md`, in the same pull request.
 
 Format changes belong in an issue before a pull request. The section list
-is deliberately short — every added section is one more thing an agent
+is deliberately short. Every added section is one more thing an agent
 skips under context pressure, which is precisely when the checkpoint
 matters most.
