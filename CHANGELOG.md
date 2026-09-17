@@ -6,6 +6,7 @@
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
 ### Changed
+- Changed the linter section of the README to say which checks reject a file and which one only warns.
 - Changed the README so the case against compaction sits in one section and the file table is a short list.
 
 ### Fixed

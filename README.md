@@ -142,7 +142,8 @@ Both are spelled out in [docs/protocol.md](docs/protocol.md).
 
 ## What the linter rejects
 
-Four checks, each guarding a way a checkpoint actually fails:
+Four checks, each guarding a way a checkpoint actually fails. The first
+three reject the file; the fourth only warns:
 
 1. Every required section is present. A missing section is a category of
    state nobody wrote down.
