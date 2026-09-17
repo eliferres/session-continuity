@@ -133,7 +133,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     paths = [Path(a) for a in args]
     if not paths:
-        print("usage: checkpoint_lint.py CHECKPOINT.md [more.md ...]")
+        # Installed, this runs as `checkpoint-lint`, not as the source file.
+        print(f"usage: {Path(sys.argv[0]).name} CHECKPOINT.md [more.md ...]")
         return 1
 
     fails, warns = [], []

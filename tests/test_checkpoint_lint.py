@@ -148,6 +148,17 @@ None.
         self.assertEqual(fails, [])
         self.assertTrue(any("thin enough" in w for w in warns))
 
+    def test_usage_line_names_the_invoked_command(self):
+        # Installed as `checkpoint-lint`, the tool must not tell the user to
+        # run a file name they do not have.
+        installed = self.dir / "checkpoint-lint"
+        installed.write_bytes((REPO / "tools" / "checkpoint_lint.py").read_bytes())
+        proc = subprocess.run(
+            [sys.executable, str(installed)], capture_output=True, text=True
+        )
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("usage: checkpoint-lint CHECKPOINT.md", proc.stdout)
+
     def test_missing_file_fails_cli(self):
         proc = self.run_cli(self.dir / "nope.md")
         self.assertEqual(proc.returncode, 1)
