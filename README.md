@@ -58,7 +58,6 @@ is the thing that broke.
 This is the wire format, copied from [docs/anatomy.md](docs/anatomy.md)
 (that file is the source of truth):
 
-````markdown
 ```markdown
 ---
 type: session-checkpoint
@@ -113,7 +112,6 @@ their fix, and anything that looks wrong but is correct.
 `Objective`, `State`, `Decisions`, `Open threads`, `Gotchas`. The linter
 matches on prefix, so `## Decisions and why` and `## Gotchas and dead ends`
 satisfy the requirement while reading like prose.
-````
 
 ## The protocols, in one paragraph each
 
