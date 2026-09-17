@@ -176,15 +176,19 @@ def main(argv: list[str] | None = None) -> int:
         return USAGE_ERROR
 
     # A path that is not a file is the caller's mistake, not a verdict on a
-    # checkpoint, so it exits like a usage error and prints nothing on stdout.
-    missing = [path for path in paths if not path.is_file()]
-    if missing:
-        for path in missing:
+    # checkpoint, so it goes to stderr. The readable files are still linted:
+    # a typo in one argument must not hide a real failure in another.
+    readable = []
+    missing = False
+    for path in paths:
+        if path.is_file():
+            readable.append(path)
+        else:
+            missing = True
             print(f"{path}: no such file", file=sys.stderr)
-        return USAGE_ERROR
 
     fails, warns = [], []
-    for path in paths:
+    for path in readable:
         file_fails, file_warns = lint(path)
         fails += file_fails
         warns += file_warns
@@ -193,8 +197,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL {line}")
     for line in warns:
         print(f"WARN {line}")
-    verdict = "FAIL" if fails else "PASS"
-    print(f"{verdict}: {len(paths)} checkpoint(s), {len(fails)} failures, {len(warns)} warnings")
+    if readable:
+        verdict = "FAIL" if fails else "PASS"
+        print(f"{verdict}: {len(readable)} checkpoint(s), {len(fails)} failures, {len(warns)} warnings")
+    # A path that was never read outranks a lint verdict on the ones that were.
+    if missing:
+        return USAGE_ERROR
     return 1 if fails else 0
 
 

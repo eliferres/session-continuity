@@ -202,6 +202,14 @@ None.
         self.assertIn("usage:", proc.stderr)
         self.assertEqual(proc.stdout, "")
 
+    def test_missing_path_still_lints_the_readable_files(self):
+        # A typo in one argument must not hide a real failure in another.
+        broken = self.write(GOOD.replace("## Objective", "## Aim"))
+        proc = self.run_cli(broken, self.dir / "nope.md")
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("no such file", proc.stderr)
+        self.assertIn("missing section 'Objective'", proc.stdout)
+
     def test_missing_file_exits_two_on_stderr(self):
         # Not a lint verdict: the file the caller named was never read.
         proc = self.run_cli(self.dir / "nope.md")
