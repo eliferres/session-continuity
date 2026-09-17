@@ -10,6 +10,15 @@ The format and protocols work on any harness that reads files.
 
 ## Quick start
 
+Install the linter as a command (not on PyPI; this installs from GitHub):
+
+```bash
+pipx install git+https://github.com/eliferres/session-continuity
+checkpoint-lint CHECKPOINT.md
+```
+
+The template, docs and hooks live in the repository, so clone it too:
+
 ```bash
 git clone https://github.com/eliferres/session-continuity.git
 cd session-continuity

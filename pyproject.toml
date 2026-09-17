@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "session-continuity"
+dynamic = ["version"]
+description = "A checkpoint file, hooks and a linter that let an agent resume at depth after compaction"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Eli Ferres" }]
+
+[project.urls]
+Source = "https://github.com/eliferres/session-continuity"
+Changelog = "https://github.com/eliferres/session-continuity/blob/main/CHANGELOG.md"
+
+[project.scripts]
+checkpoint-lint = "checkpoint_lint:main"
+
+[tool.setuptools]
+py-modules = ["checkpoint_lint"]
+package-dir = { "" = "tools" }
+
+[tool.setuptools.dynamic]
+version = { attr = "checkpoint_lint.__version__" }
