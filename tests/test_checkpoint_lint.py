@@ -165,6 +165,17 @@ None.
         self.assertEqual(fails, [])
         self.assertTrue(any("thin enough" in w for w in warns))
 
+    def test_version_as_first_argument_prints_the_version(self):
+        proc = self.run_cli("--version")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(proc.stdout.strip(), f"checkpoint-lint {checkpoint_lint.__version__}")
+
+    def test_version_after_a_file_does_not_skip_the_lint(self):
+        # Honoured anywhere, it would report success without linting anything.
+        proc = self.run_cli(REPO / "CHECKPOINT-TEMPLATE.md", "--version")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn(checkpoint_lint.__version__, proc.stdout)
+
     def test_usage_line_names_the_invoked_command(self):
         # Installed as `checkpoint-lint`, the tool must not tell the user to
         # run a file name they do not have.

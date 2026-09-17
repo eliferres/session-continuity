@@ -159,7 +159,9 @@ def lint(path: Path) -> tuple[list[str], list[str]]:
 def main(argv: list[str] | None = None) -> int:
     # The console-script wrapper calls main() bare; argv excludes the program name.
     args = sys.argv[1:] if argv is None else argv
-    if "--version" in args:
+    # Only as the first argument: honoured anywhere, `checkpoint-lint *.md
+    # --version` would report success without linting a thing.
+    if args[:1] == ["--version"]:
         print(f"checkpoint-lint {__version__}")
         return 0
     paths = [Path(a) for a in args]
