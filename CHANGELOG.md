@@ -9,6 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
+### Changed
+- Changed the README so the case against compaction sits in one section and the file table is a short list.
+
 ### Fixed
 - Fixed the README so the five rules and the required sections render as text instead of sitting inside the template's code block.
 
