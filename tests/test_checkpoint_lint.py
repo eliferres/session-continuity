@@ -184,13 +184,29 @@ None.
         proc = subprocess.run(
             [sys.executable, str(installed)], capture_output=True, text=True
         )
-        self.assertEqual(proc.returncode, 1)
-        self.assertIn("usage: checkpoint-lint CHECKPOINT.md", proc.stdout)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("usage: checkpoint-lint CHECKPOINT.md", proc.stderr)
 
-    def test_missing_file_fails_cli(self):
+    def test_clean_file_exits_zero(self):
+        proc = self.run_cli(self.write(GOOD))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_lint_failures_exit_one(self):
+        proc = self.run_cli(self.write(GOOD.replace("## Objective", "## Aim")))
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("missing section 'Objective'", proc.stdout)
+
+    def test_usage_error_exits_two_on_stderr(self):
+        proc = self.run_cli()
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("usage:", proc.stderr)
+        self.assertEqual(proc.stdout, "")
+
+    def test_missing_file_exits_two_on_stderr(self):
+        # Not a lint verdict: the file the caller named was never read.
         proc = self.run_cli(self.dir / "nope.md")
-        self.assertEqual(proc.returncode, 1)
-        self.assertIn("no such file", proc.stdout)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("no such file", proc.stderr)
 
 
 if __name__ == "__main__":
