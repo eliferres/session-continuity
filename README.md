@@ -26,9 +26,9 @@ python3 tools/checkpoint_lint.py examples/*.md   # zero dependencies, Python 3.9
 ```
 
 Copy `CHECKPOINT-TEMPLATE.md` into your project as `CHECKPOINT.md`, paste
-the contract below into `CLAUDE.md` or your system prompt, and run the
-linter before you trust a checkpoint. Hooks are optional; see
-[docs/hooks.md](docs/hooks.md).
+"The protocols, in one paragraph each" below into `CLAUDE.md` or your
+system prompt, and run the linter before you trust a checkpoint. Hooks
+are optional; see [docs/hooks.md](docs/hooks.md).
 
 ## Why a checkpoint beats a summary
 

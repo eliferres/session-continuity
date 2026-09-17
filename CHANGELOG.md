@@ -9,6 +9,7 @@
 - Changed the README so the case against compaction sits in one section and the file table is a short list.
 
 ### Fixed
+- Fixed the Quick start, which told you to paste a "contract" the README never had; it names the protocols section instead.
 - Fixed the README so the five rules and the required sections render as text instead of sitting inside the template's code block.
 
 ## [1.1.0](https://github.com/eliferres/session-continuity/releases/tag/v1.1.0) - 2026-09-03
