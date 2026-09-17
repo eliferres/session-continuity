@@ -6,6 +6,7 @@
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
 ### Changed
+- Changed what a file with an unclosed code fence reports: everything after the unclosed fence now counts as code, so a section that only had content after it is reported as empty. The fix is to close the fence.
 - Changed the linter section of the README to say which checks reject a file and which one only warns.
 - Changed the README so the case against compaction sits in one section and the file table is a short list.
 
