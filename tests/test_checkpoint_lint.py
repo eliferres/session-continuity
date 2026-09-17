@@ -115,6 +115,15 @@ class CheckpointLintTest(unittest.TestCase):
         )
         self.assertEqual(self.lint(fenced), ([], []))
 
+    def test_relative_date_inside_four_backtick_fence_ignored(self):
+        # A four-backtick fence is how you quote a block that itself holds a
+        # fence, and this repo shipped a README bug for exactly that reason.
+        fenced = GOOD.replace(
+            "## Open threads\n",
+            "## Open threads\n````\n```\ngit log --since=yesterday\n```\n````\n",
+        )
+        self.assertEqual(self.lint(fenced), ([], []))
+
     def test_missing_frontmatter_date_fails(self):
         fails, _ = self.lint(GOOD.replace("updated: 2026-03-11\n", ""))
         self.assertTrue(any("no `updated:` line" in f for f in fails))

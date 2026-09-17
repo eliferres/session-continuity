@@ -28,7 +28,10 @@ FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\s*$", re.S | re.M)
 UPDATED = re.compile(r"^updated:\s*(\S+)\s*$", re.M)
 ISO_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 HEADER = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.M)
-FENCED_BLOCK = re.compile(r"^(```|~~~).*?^\1\s*$", re.M | re.S)
+# CommonMark: up to three spaces of indent, then three or more backticks or
+# tildes. A closing fence repeats the same character at least as many times
+# and carries nothing after it.
+FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 # Time words that only mean something to the session that wrote them.
 # "The migration broke yesterday" is unreadable a week later; the date is not.
@@ -51,7 +54,30 @@ THIN_WORD_COUNT = 150
 
 def prose_only(text: str) -> str:
     # Fenced blocks hold commands and log excerpts, not narrative claims.
-    return FENCED_BLOCK.sub("", text)
+    # A four-backtick fence quotes a block that itself holds a fence, so the
+    # scan tracks fence length rather than looking for three characters.
+    # Fenced lines become blank rather than vanishing, so the line numbers in
+    # a failure still point at the line the reader has to edit.
+    kept, fence = [], None
+    for line in text.split("\n"):
+        match = FENCE_LINE.match(line)
+        if fence is None:
+            # A backtick fence's info string cannot contain a backtick.
+            if match and not (match.group(1)[0] == "`" and "`" in match.group(2)):
+                fence = match.group(1)
+                kept.append("")
+                continue
+            kept.append(line)
+            continue
+        kept.append("")
+        if (
+            match
+            and match.group(1)[0] == fence[0]
+            and len(match.group(1)) >= len(fence)
+            and not match.group(2).strip()
+        ):
+            fence = None
+    return "\n".join(kept)
 
 
 def body_without_frontmatter(text: str) -> str:
