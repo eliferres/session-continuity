@@ -32,6 +32,8 @@ HEADER = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.M)
 # tildes. A closing fence repeats the same character at least as many times
 # and carries nothing after it.
 FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+# An inline code span: a run of backticks, its content, the same run again.
+INLINE_CODE = re.compile(r"(`+)(?!`).*?(?<!`)\1(?!`)")
 
 # Time words that only mean something to the session that wrote them.
 # "The migration broke yesterday" is unreadable a week later; the date is not.
@@ -122,7 +124,10 @@ def check_sections(text: str, name: str) -> list[str]:
 def check_relative_dates(text: str, name: str) -> list[str]:
     fails = []
     for number, line in enumerate(prose_only(text).splitlines(), start=1):
-        for hit in RELATIVE_DATES.finditer(line):
+        # An inline code span is a command too: `git log --since=yesterday`
+        # is quoted, not claimed. Emptiness is judged on the raw section, so
+        # this exemption belongs here rather than in prose_only.
+        for hit in RELATIVE_DATES.finditer(INLINE_CODE.sub(" ", line)):
             fails.append(
                 f"{name}:{number}: relative date '{hit.group(0)}' "
                 f"(use an absolute YYYY-MM-DD date)"

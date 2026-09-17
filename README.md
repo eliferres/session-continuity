@@ -150,8 +150,9 @@ three reject the file; the fourth only warns:
 2. No required section is empty. Empty headings are the most common way a
    checkpoint looks complete and restores nothing.
 3. `updated:` is an absolute `YYYY-MM-DD` date, and no relative time word
-   ("yesterday", "last week") appears in the prose. Code fences are
-   exempt: `git log --since=yesterday` is a command, not a claim.
+   ("yesterday", "last week") appears in the prose. Code fences and
+   inline code spans are exempt: `git log --since=yesterday` is a
+   command, not a claim.
 4. Length sanity, advisory only: a three-line checkpoint of a long
    session is a summary wearing a checkpoint's headings.
 
