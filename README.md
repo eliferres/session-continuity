@@ -156,6 +156,9 @@ three reject the file; the fourth only warns:
 4. Length sanity, advisory only: a three-line checkpoint of a long
    session is a summary wearing a checkpoint's headings.
 
+Exit codes: 0 clean, 1 lint failures, 2 usage or input error (no files
+given, or a path that is not a file).
+
 CI runs the tests on three Python versions and then lints the shipped
 example and template, so it can never ship a file its own linter
 rejects.

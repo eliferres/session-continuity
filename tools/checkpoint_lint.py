@@ -6,10 +6,12 @@ section present and carrying real content, an absolute `updated:` date in
 frontmatter, no relative time words (they are meaningless to a reader who
 arrives days later), and enough substance to be worth resuming from.
 
-Stdlib only. Exit 0 when clean, 1 on any failure.
+Stdlib only.
 
 Usage:
     python3 tools/checkpoint_lint.py CHECKPOINT.md [more.md ...]
+
+Exit codes: 0 clean, 1 lint failures, 2 usage or input error.
 """
 
 from __future__ import annotations
@@ -52,6 +54,9 @@ RELATIVE_DATES = re.compile(
 # Below this, a checkpoint is a summary wearing a checkpoint's headings.
 # Advisory: a genuinely short session can produce a short honest checkpoint.
 THIN_WORD_COUNT = 150
+
+# Exit 0 clean, 1 lint failures, 2 usage or input error.
+USAGE_ERROR = 2
 
 
 def prose_only(text: str) -> str:
@@ -167,14 +172,19 @@ def main(argv: list[str] | None = None) -> int:
     paths = [Path(a) for a in args]
     if not paths:
         # Installed, this runs as `checkpoint-lint`, not as the source file.
-        print(f"usage: {Path(sys.argv[0]).name} CHECKPOINT.md [more.md ...]")
-        return 1
+        print(f"usage: {Path(sys.argv[0]).name} CHECKPOINT.md [more.md ...]", file=sys.stderr)
+        return USAGE_ERROR
+
+    # A path that is not a file is the caller's mistake, not a verdict on a
+    # checkpoint, so it exits like a usage error and prints nothing on stdout.
+    missing = [path for path in paths if not path.is_file()]
+    if missing:
+        for path in missing:
+            print(f"{path}: no such file", file=sys.stderr)
+        return USAGE_ERROR
 
     fails, warns = [], []
     for path in paths:
-        if not path.is_file():
-            fails.append(f"{path}: no such file")
-            continue
         file_fails, file_warns = lint(path)
         fails += file_fails
         warns += file_warns
