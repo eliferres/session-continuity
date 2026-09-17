@@ -11,6 +11,7 @@
 - Changed the README so the case against compaction sits in one section and the file table is a short list.
 
 ### Fixed
+- Fixed the relative-date check to skip inline code spans, so a checkpoint quoting `git log --since=yesterday` in a sentence no longer fails.
 - Fixed the code fence exemption to follow the Markdown rules: fences of four or more backticks or tildes are now recognised, and a failure inside a file with fences reports the real line number.
 - Fixed the usage line to name the command you actually ran, so the installed `checkpoint-lint` no longer points at a source file.
 - Fixed the Quick start, which told you to paste a "contract" the README never had; it names the protocols section instead.

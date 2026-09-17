@@ -124,6 +124,14 @@ class CheckpointLintTest(unittest.TestCase):
         )
         self.assertEqual(self.lint(fenced), ([], []))
 
+    def test_relative_date_inside_inline_code_ignored(self):
+        # The README's own example of an exempt command, written inline.
+        inline = GOOD.replace(
+            "2. Delete the alias table once the release after this one ships.",
+            "2. Check `git log --since=yesterday` before the next port step.",
+        )
+        self.assertEqual(self.lint(inline), ([], []))
+
     def test_missing_frontmatter_date_fails(self):
         fails, _ = self.lint(GOOD.replace("updated: 2026-03-11\n", ""))
         self.assertTrue(any("no `updated:` line" in f for f in fails))
