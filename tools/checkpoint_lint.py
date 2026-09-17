@@ -14,6 +14,8 @@ Usage:
 
 from __future__ import annotations
 
+__version__ = "1.1.0"
+
 import re
 import sys
 from pathlib import Path
@@ -123,8 +125,13 @@ def lint(path: Path) -> tuple[list[str], list[str]]:
     return fails, warn_thin(text, name)
 
 
-def main(argv: list[str]) -> int:
-    paths = [Path(a) for a in argv[1:]]
+def main(argv: list[str] | None = None) -> int:
+    # The console-script wrapper calls main() bare; argv excludes the program name.
+    args = sys.argv[1:] if argv is None else argv
+    if "--version" in args:
+        print(f"checkpoint-lint {__version__}")
+        return 0
+    paths = [Path(a) for a in args]
     if not paths:
         print("usage: checkpoint_lint.py CHECKPOINT.md [more.md ...]")
         return 1
@@ -148,4 +155,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main())
