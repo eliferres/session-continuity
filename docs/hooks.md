@@ -100,7 +100,7 @@ Restart Claude Code, then check `/hooks` to confirm all of them are registered.
 | Hook | Event | Effect |
 |---|---|---|
 | `precompact-checkpoint.sh` | `PreCompact` | Archives the current `CHECKPOINT.md` under `.checkpoints/`, copies the raw transcript to `.checkpoints/raw/`, and stamps `.checkpoints/last-compaction.txt`. |
-| `sessionstart-resume.sh` | `SessionStart` | Prints `RESUME AVAILABLE` with the checkpoint's `updated:` date, plus a staleness warning when a compaction happened after the last save. |
+| `sessionstart-resume.sh` | `SessionStart` | Prints `RESUME AVAILABLE` with the checkpoint's `updated:` date and the exact resume cue (`continue from CHECKPOINT.md`), plus a staleness warning when a compaction happened after the last save. |
 | `context-watch.py` | `UserPromptSubmit`, `PostToolUse` | Reads the real context size from the transcript and tells the agent once per session at each of two thresholds: a heads-up to plan a checkpoint, then a wind-down to write it now. |
 
 ## How the context watch measures

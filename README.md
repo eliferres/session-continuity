@@ -130,7 +130,9 @@ prose.
 deliberate compaction, and after each milestone: a checkpoint several
 ships behind is worse than none, because it is confidently wrong. Rewrite
 the whole file, drop a dated copy in `.checkpoints/`, and read the file
-back rather than trusting the write.
+back rather than trusting the write. End the reply with a fenced pickup
+prompt for a fresh session: `continue from CHECKPOINT.md`, then the
+objective's first line and the next open thread, verbatim.
 
 **Read** the checkpoint in full first, in one read of a known path. Follow
 its references on demand, verify what you are about to act on, restate a

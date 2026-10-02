@@ -40,9 +40,20 @@ overwrite may never cost depth.
 **Read it back after writing.** Trusting a tool's success message is how
 sessions discover, one session later, that the file was empty.
 
+**End with the pickup prompt.** The reply that reports the checkpoint ends
+with a fenced block the person can paste into a fresh session as is:
+line 1 is the resume cue, `continue from CHECKPOINT.md`, then the first
+line under `## Objective` and the first item under `## Open threads`,
+both copied verbatim. The new session is oriented before it opens a
+file, and the person never has to remember what to type.
+
 ## Rehydrate (the read half)
 
 ### The sequence
+
+The resume cue, `continue from <checkpoint file>`, means exactly this
+sequence on exactly that file. A bare "continue" in the middle of a task
+means keep going on the task, not reload a checkpoint.
 
 1. **Read the checkpoint in full, first, in one read of a known path.**
    Not a skim, not a grep, not the first two sections. Hunting for state
@@ -61,7 +72,8 @@ sessions discover, one session later, that the file was empty.
    workstream's state, the prioritized open threads. This is not
    ceremony — it proves the context actually loaded, and it is the cheap
    moment for a human to catch a wrong inheritance before work compounds
-   on it.
+   on it. End the recap with the resume cue in a fenced block, so the
+   person always holds the key to this session.
 5. **Continue at full depth**, using the real specifics from the
    checkpoint rather than a paraphrase of them.
 

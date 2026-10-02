@@ -17,6 +17,9 @@ ARCHIVE="${SESSION_CHECKPOINT_ARCHIVE:-$PROJECT_DIR/.checkpoints}"
 updated=$(sed -n 's/^updated:[[:space:]]*//p' "$CHECKPOINT" | head -1)
 echo "RESUME AVAILABLE - $CHECKPOINT (updated: ${updated:-unknown})"
 echo "Read it in full before acting. Verify anything it cites against the live source."
+# One exact cue line, so the agent hands the person the same words every
+# time instead of improvising them; protocol.md says where it goes.
+echo "Resume cue: continue from ${CHECKPOINT#"$PROJECT_DIR"/}"
 
 breadcrumb="$ARCHIVE/last-compaction.txt"
 if [ -f "$breadcrumb" ]; then
