@@ -222,7 +222,7 @@ safety net, not the pattern.
 | Variable | Default | Meaning |
 |---|---|---|
 | `SESSION_CHECKPOINT_NAME` | none | This session's name when several share a project; its checkpoint is `CHECKPOINT-<name>.md`. Letters, digits, `.`, `-` and `_` only. |
-| `SESSION_CHECKPOINT_FILE` | none | An explicit checkpoint path that wins over the name. Unset, a named session uses `$CLAUDE_PROJECT_DIR/CHECKPOINT-<name>.md` and a session with no name uses every checkpoint in the project, `CHECKPOINT.md` included. |
+| `SESSION_CHECKPOINT_FILE` | none | An explicit checkpoint path that wins over the name. Unset, a named session uses `$CLAUDE_PROJECT_DIR/CHECKPOINT-<name>.md` and a session with no name uses every checkpoint in the project, `CHECKPOINT.md` included. Set without a name, the file's own name labels the raw transcript copy. |
 | `SESSION_CHECKPOINT_ARCHIVE` | `$CLAUDE_PROJECT_DIR/.checkpoints` | Dated copies, raw transcripts, breadcrumb, context-watch state. |
 | `SESSION_CONTEXT_HEADS_UP` | `100000` | Context tokens at which the heads-up is said. |
 | `SESSION_CONTEXT_WIND_DOWN` | `150000` | Context tokens at which the wind-down is said; must be above the heads-up. |

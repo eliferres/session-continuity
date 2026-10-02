@@ -62,8 +62,15 @@ if [ "$archived" -eq 0 ]; then
     "$(date +%Y-%m-%d)" "$stamp" "$ARCHIVE" > "$ARCHIVE/$stamp-${NAME:+$NAME-}no-checkpoint.md"
 fi
 
+# The copy is labelled so two sessions compacting in the same second never
+# share a file: the session's name, else its checkpoint file's own name
+# reduced to characters that are safe in a file name.
+label=$NAME
+if [ -z "$label" ] && [ -n "${SESSION_CHECKPOINT_FILE:-}" ]; then
+  label=$(printf '%s' "$(basename "$SESSION_CHECKPOINT_FILE" .md)" | tr -c 'A-Za-z0-9._-' '-')
+fi
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  cp "$transcript" "$ARCHIVE/raw/$stamp${NAME:+-$NAME}.jsonl"
+  cp "$transcript" "$ARCHIVE/raw/$stamp${label:+-$label}.jsonl"
 fi
 
 # The breadcrumb the SessionStart hook compares against the checkpoint's

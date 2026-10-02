@@ -172,6 +172,20 @@ class PreCompactTest(HookCase):
         self.assertTrue(raw[0].endswith("-billing.jsonl"), raw)
         self.assertTrue(raw[1].endswith("-search.jsonl"), raw)
 
+    def test_sessions_set_by_checkpoint_file_keep_separate_raw_transcripts(self):
+        # With no name, the checkpoint file's own name labels the copy.
+        for label in ("billing state", "search"):
+            transcript = self.project / (label + ".jsonl")
+            transcript.write_text('{"type":"user"}\n')
+            payload = {"hook_event_name": "PreCompact", "session_id": label,
+                       "transcript_path": str(transcript)}
+            env = {"SESSION_CHECKPOINT_FILE": str(self.project / (label + ".md"))}
+            self.execute(PRE_COMPACT, payload, env)
+        raw = sorted(p.name for p in (self.archive / "raw").glob("*.jsonl"))
+        self.assertEqual(len(raw), 2, raw)
+        self.assertTrue(raw[0].endswith("-billing-state.jsonl"), raw)
+        self.assertTrue(raw[1].endswith("-search.jsonl"), raw)
+
     def test_a_named_session_without_its_checkpoint_leaves_the_marker(self):
         self.checkpoint("CHECKPOINT-search.md")
         self.run_hook({"SESSION_CHECKPOINT_NAME": "billing"})
