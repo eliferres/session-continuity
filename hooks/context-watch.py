@@ -34,8 +34,11 @@ Configuration, all optional:
                                 tool calls in one session (default 60)
     SESSION_IDLE_SECONDS        idle gap that makes a checkpoint owed
                                 (default 3600)
-    SESSION_CHECKPOINT_FILE     the checkpoint that settles the debt
-                                (default $CLAUDE_PROJECT_DIR/CHECKPOINT.md)
+    SESSION_CHECKPOINT_NAME     this session's name when parallel sessions
+                                share a project; its checkpoint is
+                                CHECKPOINT-<name>.md (default: no name, and
+                                the newest checkpoint in the project counts)
+    SESSION_CHECKPOINT_FILE     an explicit checkpoint path; wins over the name
     SESSION_CHECKPOINT_ARCHIVE  where per-session state is kept
                                 (default $CLAUDE_PROJECT_DIR/.checkpoints)
 
@@ -47,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import glob
 import re
 import sys
 import time
@@ -205,9 +209,30 @@ def warning_for(tokens: int, heads_up: int, wind_down: int, state: dict) -> Opti
     return message
 
 
-def checkpoint_path() -> str:
+def checkpoint_mtime() -> Optional[float]:
+    """When this session's checkpoint was last written, or None if never.
+
+    A named session owns CHECKPOINT-<name>.md and only that file counts,
+    so one session's checkpoint never settles another's debt. A session
+    with no name cannot tell which checkpoint is its own and takes the
+    newest in the project.
+    """
     project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    return os.environ.get("SESSION_CHECKPOINT_FILE") or os.path.join(project, "CHECKPOINT.md")
+    name = os.environ.get("SESSION_CHECKPOINT_NAME") or ""
+    if name and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+        print("context-watch: SESSION_CHECKPOINT_NAME=%r may hold only letters, digits, "
+              "'.', '-' and '_'; ignored" % name, file=sys.stderr)
+        name = ""
+    if os.environ.get("SESSION_CHECKPOINT_FILE"):
+        candidates = [os.environ["SESSION_CHECKPOINT_FILE"]]
+    elif name:
+        candidates = [os.path.join(project, "CHECKPOINT-%s.md" % name)]
+    else:
+        candidates = [os.path.join(project, "CHECKPOINT.md")] + [
+            path for path in glob.glob(os.path.join(project, "CHECKPOINT-*.md"))
+            if os.path.basename(path) != "CHECKPOINT-TEMPLATE.md"]
+    times = [os.path.getmtime(path) for path in candidates if os.path.isfile(path)]
+    return max(times) if times else None
 
 
 def debt_for(tokens: int, heads_up: int, last_work: float, now: float,
@@ -224,11 +249,10 @@ def debt_for(tokens: int, heads_up: int, last_work: float, now: float,
         return None
     if state.get("debt_said_for") == last_work:
         return None
-    try:
-        if os.path.getmtime(checkpoint_path()) >= last_work:
-            return None
-    except OSError:
-        pass  # no checkpoint at all is the plainest case of one owed
+    saved = checkpoint_mtime()
+    # No checkpoint at all is the plainest case of one owed.
+    if saved is not None and saved >= last_work:
+        return None
     state["debt_said_for"] = last_work
     return CHECKPOINT_OWED
 

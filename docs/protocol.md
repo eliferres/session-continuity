@@ -37,6 +37,15 @@ protects a parallel session's state from being clobbered by yours.
 state, confirm that arc has an archived copy before overwriting. An
 overwrite may never cost depth.
 
+**One file per parallel session.** Two sessions working one project at
+the same time must not share a front door: each rewrite in full would
+erase the other's state. Give each session a name and its own file,
+`CHECKPOINT-<name>.md` (`CHECKPOINT-billing.md`, `CHECKPOINT-search.md`),
+and resume with that file's cue, `continue from CHECKPOINT-billing.md`.
+With the hooks, start the session with `SESSION_CHECKPOINT_NAME=<name>`
+and they archive, warn and announce for that file alone. Merging two arcs
+into one remains a human decision.
+
 **Read it back after writing.** Trusting a tool's success message is how
 sessions discover, one session later, that the file was empty.
 

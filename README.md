@@ -28,7 +28,10 @@ python3 tools/checkpoint_lint.py examples/*.md   # zero dependencies, Python 3.9
 Copy `CHECKPOINT-TEMPLATE.md` into your project as `CHECKPOINT.md`, paste
 "The protocols, in one paragraph each" below into `CLAUDE.md` or your
 system prompt, and run the linter before you trust a checkpoint. Hooks
-are optional; see [docs/hooks.md](docs/hooks.md).
+are optional; see [docs/hooks.md](docs/hooks.md). To run several
+sessions in one project, start each with its own name,
+`SESSION_CHECKPOINT_NAME=billing claude`, and it checkpoints to its own
+`CHECKPOINT-billing.md`.
 
 ## Why a checkpoint beats a summary
 
@@ -177,9 +180,9 @@ rejects.
 - The PreCompact hook cannot write the checkpoint, only preserve and
   stamp what already exists. The judgment is the product, and it comes
   from the agent.
-- Single project, single front door. Parallel sessions writing the same
-  `CHECKPOINT.md` need the dated archive to stay honest, and merging two
-  live arcs is still a human job.
+- Parallel sessions stay apart only when each is started with its own
+  `SESSION_CHECKPOINT_NAME`. Two sessions given the same name, or none,
+  still write one shared file.
 
 ## Files
 

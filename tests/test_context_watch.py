@@ -263,5 +263,17 @@ class IdleDebtTest(HookBase):
         self.assertNotRegex(self.hook(110000, idle=self.HOURS_2).stdout, r"\d")
 
 
+class NamedCheckpointDebtTest(HookBase):
+    HOURS_2 = IdleDebtTest.HOURS_2
+    owed = IdleDebtTest.owed
+
+    def test_a_named_session_is_settled_only_by_its_own_checkpoint(self):
+        env = {"SESSION_CHECKPOINT_NAME": "billing"}
+        (self.project / "CHECKPOINT-search.md").write_text("fresh\n")
+        self.assertTrue(self.owed(self.hook(110000, idle=self.HOURS_2, env=env)))
+        (self.project / "CHECKPOINT-billing.md").write_text("fresh\n")
+        self.assertFalse(self.owed(self.hook(110000, idle=3 * 3600, env=env)))
+
+
 if __name__ == "__main__":
     unittest.main()
