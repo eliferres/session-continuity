@@ -22,7 +22,9 @@ jobs:
       - name: Lint the shipped example and template
         run: python3 tools/checkpoint_lint.py CHECKPOINT-TEMPLATE.md examples/*.md
       - name: Check the hook scripts parse
-        run: bash -n hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh
+        run: |
+          bash -n hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh
+          python3 -m py_compile hooks/context-watch.py
       - name: Install and run the installed command
         run: |
           python -m pip install .

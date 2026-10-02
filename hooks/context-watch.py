@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Context watch: measure how full a session's context really is.
+"""Context watch: warn a session before its context runs out.
 
 The size that matters is the one the next model call re-reads: the last
 call's fresh input plus everything it read from and wrote to the prompt
@@ -10,22 +10,56 @@ transcript full of large tool output can be many megabytes while the
 context is modest, and the reverse, so a size-based alarm fires late or
 never.
 
+As a hook (no arguments, the harness's event JSON on stdin) it says two
+things, each once per session: a heads-up at the first threshold, so the
+agent plans a checkpoint at the next natural boundary, and a wind-down at
+the second, so it writes the checkpoint before compaction decides for it.
+It never blocks and always exits 0; a hook that can stop the session is a
+different tool with a different contract.
+
 Usage:
+    python3 hooks/context-watch.py < event.json        (as a hook)
     python3 hooks/context-watch.py --measure TRANSCRIPT.jsonl
 
-Stdlib only. Exit codes: 0 measured, 2 usage or input error.
+Configuration, all optional:
+    SESSION_CONTEXT_HEADS_UP    tokens for the heads-up   (default 100000)
+    SESSION_CONTEXT_WIND_DOWN   tokens for the wind-down  (default 150000)
+    SESSION_CHECKPOINT_ARCHIVE  where per-session state is kept
+                                (default $CLAUDE_PROJECT_DIR/.checkpoints)
+
+Stdlib only. Exit codes for --measure: 0 measured, 2 usage or input error.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import sys
 from typing import Optional
 
 # Only the tail is read: the last model call is near the end, and a long
 # session's transcript runs to tens of megabytes.
 TAIL_BYTES = 256 * 1024
+
+# Half and three quarters of the 200,000-token window most models run
+# with. Half leaves room to finish the task in hand and checkpoint at a
+# boundary; three quarters still leaves room to write a full checkpoint
+# before automatic compaction, which fires as the window nears full. On a
+# larger window, raise both.
+DEFAULT_HEADS_UP = 100_000
+DEFAULT_WIND_DOWN = 150_000
+
+# No token count in either message: a number in the agent's context gets
+# quoted back as a fact long after it stopped being true, and the
+# instruction is the whole point.
+HEADS_UP = ("Context heads-up: this session's context is getting large. Plan a "
+            "checkpoint at the next natural boundary. Nothing is blocked; keep "
+            "working at full quality.")
+WIND_DOWN = ("Context wind-down: compaction is getting close. Rewrite the "
+             "checkpoint now, finish the step in flight, and start nothing new "
+             "that would not survive a compaction.")
 
 
 def _last_call_usage(lines: list) -> Optional[dict]:
@@ -73,7 +107,112 @@ def context_tokens(transcript: str) -> int:
             + usage.get("cache_creation_input_tokens", 0))
 
 
+def _threshold(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    if re.fullmatch(r"[0-9]+", raw) and int(raw) > 0:
+        return int(raw)
+    print("context-watch: %s=%r is not a positive whole number; using %d"
+          % (name, raw, default), file=sys.stderr)
+    return default
+
+
+def thresholds() -> tuple:
+    heads_up = _threshold("SESSION_CONTEXT_HEADS_UP", DEFAULT_HEADS_UP)
+    wind_down = _threshold("SESSION_CONTEXT_WIND_DOWN", DEFAULT_WIND_DOWN)
+    if heads_up >= wind_down:
+        print("context-watch: the heads-up threshold must be below the wind-down "
+              "threshold; using the defaults", file=sys.stderr)
+        return DEFAULT_HEADS_UP, DEFAULT_WIND_DOWN
+    return heads_up, wind_down
+
+
+def state_dir() -> str:
+    project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    archive = os.environ.get("SESSION_CHECKPOINT_ARCHIVE") or os.path.join(project, ".checkpoints")
+    return os.path.join(archive, "sessions")
+
+
+def _state_path(session_id: str) -> str:
+    # The id names a file, so anything that is not a plain token is hashed
+    # rather than trusted as a path component.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", session_id):
+        session_id = hashlib.sha256(session_id.encode()).hexdigest()[:32]
+    return os.path.join(state_dir(), session_id + ".json")
+
+
+def load_state(session_id: str) -> dict:
+    try:
+        with open(_state_path(session_id)) as fh:
+            state = json.load(fh)
+        return state if isinstance(state, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(session_id: str, state: dict) -> None:
+    path = _state_path(session_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    with open(tmp, "w") as fh:
+        json.dump(state, fh)
+    os.replace(tmp, path)
+
+
+def warning_for(tokens: int, state: dict) -> Optional[str]:
+    """The warning this measurement earns, or None; updates state in place."""
+    heads_up, wind_down = thresholds()
+    said = state.setdefault("said", [])
+    if tokens < heads_up:
+        # Only a compaction brings a session's context back under the first
+        # line, and the refilled session should hear both warnings again.
+        said.clear()
+        return None
+    # A session that jumps straight past both lines hears only the wind-down;
+    # the heads-up would arrive too late to mean anything.
+    level, message = ("wind-down", WIND_DOWN) if tokens >= wind_down else ("heads-up", HEADS_UP)
+    if level in said:
+        return None
+    said.extend(name for name in ("heads-up", level) if name not in said)
+    return message
+
+
+def run_hook(event: dict) -> Optional[str]:
+    transcript = event.get("transcript_path") or ""
+    session_id = str(event.get("session_id") or "unknown")
+    if not os.path.isfile(transcript):
+        return None
+    state = load_state(session_id)
+    before = json.dumps(state, sort_keys=True)
+    message = warning_for(context_tokens(transcript), state)
+    if json.dumps(state, sort_keys=True) != before:
+        save_state(session_id, state)
+    return message
+
+
+def emit(event: dict, message: str) -> None:
+    if event.get("hook_event_name") == "UserPromptSubmit":
+        # On a prompt, plain stdout is what reaches the agent as context.
+        print(message)
+    else:
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": event.get("hook_event_name") or "PostToolUse",
+            "additionalContext": message}}))
+
+
 def main(argv: list) -> int:
+    if not argv:
+        # Hook mode never fails the session: whatever goes wrong is one line
+        # on stderr and exit 0.
+        try:
+            event = json.load(sys.stdin)
+            message = run_hook(event) if isinstance(event, dict) else None
+            if message:
+                emit(event, message)
+        except Exception as exc:  # noqa: BLE001 - a broken hook must not break the session
+            print("context-watch: %s" % exc, file=sys.stderr)
+        return 0
     if len(argv) == 2 and argv[0] == "--measure":
         try:
             print(context_tokens(argv[1]))
@@ -81,7 +220,8 @@ def main(argv: list) -> int:
             print("context-watch: cannot read %s: %s" % (argv[1], exc.strerror), file=sys.stderr)
             return 2
         return 0
-    print("usage: context-watch.py --measure TRANSCRIPT.jsonl", file=sys.stderr)
+    print("usage: context-watch.py [--measure TRANSCRIPT.jsonl] (no arguments: hook event on stdin)",
+          file=sys.stderr)
     return 2
 
 

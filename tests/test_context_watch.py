@@ -104,5 +104,85 @@ class MeasureTest(Base):
         self.assertEqual(len(out.stderr.strip().splitlines()), 1)
 
 
+class WarningTest(Base):
+    def setUp(self):
+        super().setUp()
+        self.project = self.dir / "project"
+        self.project.mkdir()
+
+    def hook(self, tokens, event="UserPromptSubmit", session="s1", env=None):
+        self.write_transcript([assistant(0, tokens, 0)])
+        payload = {"hook_event_name": event, "session_id": session,
+                   "transcript_path": str(self.transcript)}
+        full_env = {"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)}
+        full_env.update(env or {})
+        out = subprocess.run([sys.executable, str(SCRIPT)], input=json.dumps(payload),
+                             capture_output=True, text=True, env=full_env)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return out
+
+    def test_below_the_first_threshold_says_nothing(self):
+        self.assertEqual(self.hook(50000).stdout, "")
+
+    def test_heads_up_is_said_once_per_session(self):
+        first = self.hook(110000)
+        self.assertIn("heads-up", first.stdout.lower())
+        self.assertEqual(self.hook(115000).stdout, "")
+
+    def test_wind_down_follows_the_heads_up_once(self):
+        self.hook(110000)
+        second = self.hook(160000)
+        self.assertIn("wind-down", second.stdout.lower())
+        self.assertEqual(self.hook(170000).stdout, "")
+
+    def test_a_jump_past_both_lines_says_only_the_wind_down(self):
+        out = self.hook(180000)
+        self.assertIn("wind-down", out.stdout.lower())
+        self.assertNotIn("heads-up", out.stdout.lower())
+        self.assertEqual(self.hook(110000).stdout, "")
+
+    def test_each_session_is_warned_on_its_own(self):
+        self.hook(110000, session="a")
+        self.assertIn("heads-up", self.hook(110000, session="b").stdout.lower())
+
+    def test_a_compaction_rearms_the_warnings(self):
+        # Context only falls back under the first line when the harness
+        # compacted it; the refilled session deserves the warnings again.
+        self.hook(110000)
+        self.assertEqual(self.hook(40000).stdout, "")
+        self.assertIn("heads-up", self.hook(110000).stdout.lower())
+
+    def test_messages_carry_no_token_count(self):
+        # A number in the message gets quoted back as fact; the instruction is the point.
+        for tokens in (110000, 160000):
+            out = self.hook(tokens, session=str(tokens))
+            self.assertNotRegex(out.stdout, r"\d")
+
+    def test_post_tool_use_answers_in_the_hook_json_shape(self):
+        out = self.hook(110000, event="PostToolUse")
+        body = json.loads(out.stdout)
+        self.assertEqual(body["hookSpecificOutput"]["hookEventName"], "PostToolUse")
+        self.assertIn("heads-up", body["hookSpecificOutput"]["additionalContext"].lower())
+
+    def test_thresholds_are_configurable(self):
+        env = {"SESSION_CONTEXT_HEADS_UP": "500000", "SESSION_CONTEXT_WIND_DOWN": "700000"}
+        self.assertEqual(self.hook(450000, env=env).stdout, "")
+        self.assertIn("heads-up", self.hook(550000, env=env).stdout.lower())
+
+    def test_a_bad_threshold_falls_back_to_the_defaults_with_one_line(self):
+        out = self.hook(110000, env={"SESSION_CONTEXT_HEADS_UP": "lots"})
+        self.assertIn("heads-up", out.stdout.lower())
+        self.assertIn("SESSION_CONTEXT_HEADS_UP", out.stderr)
+        self.assertEqual(len(out.stderr.strip().splitlines()), 1)
+
+    def test_a_missing_transcript_is_silent_and_never_blocks(self):
+        payload = {"hook_event_name": "UserPromptSubmit", "session_id": "s",
+                   "transcript_path": str(self.dir / "gone.jsonl")}
+        out = subprocess.run([sys.executable, str(SCRIPT)], input=json.dumps(payload),
+                             capture_output=True, text=True,
+                             env={"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)})
+        self.assertEqual((out.returncode, out.stdout), (0, ""))
+
+
 if __name__ == "__main__":
     unittest.main()

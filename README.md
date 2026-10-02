@@ -1,6 +1,6 @@
 # session-continuity
 
-When an agent hits its context limit, the built-in fix is a summary, and a summary keeps the conclusions while dropping the decisions, paths, and dead ends behind them. session-continuity is a specified checkpoint file, hooks that catch the compaction you did not see coming, and a linter that checks the file. Two scripts wire it into Claude Code.
+When an agent hits its context limit, the built-in fix is a summary, and a summary keeps the conclusions while dropping the decisions, paths, and dead ends behind them. session-continuity is a specified checkpoint file, hooks that catch the compaction you did not see coming, and a linter that checks the file. Optional hooks wire it into Claude Code.
 
 The format and protocols work on any harness that reads files.
 
@@ -188,7 +188,8 @@ rejects.
 - `examples/`: one realistic filled checkpoint, mid-migration, that passes the linter.
 - `hooks/`: `precompact-checkpoint.sh` archives state and stamps the
   compaction; `sessionstart-resume.sh` announces `RESUME AVAILABLE` and
-  warns when the checkpoint is behind.
+  warns when the checkpoint is behind; `context-watch.py` reads the real
+  context size and warns once at a heads-up and once at a wind-down.
 - `tools/checkpoint_lint.py`: the shape linter, stdlib only.
 - `tests/`: real fixture files on disk, no mocks.
 

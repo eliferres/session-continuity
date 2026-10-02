@@ -4,6 +4,7 @@
 
 ### Added
 - Added `hooks/context-watch.py --measure TRANSCRIPT`, which prints how many tokens a session's context really holds, read from the last model call's usage in the transcript instead of estimated from the file's size.
+- Added a context watch hook for `UserPromptSubmit` and `PostToolUse` that tells the agent once per session to plan a checkpoint (default 100,000 tokens) and once to write it now (default 150,000), both set with `SESSION_CONTEXT_HEADS_UP` and `SESSION_CONTEXT_WIND_DOWN`.
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
 ### Changed
