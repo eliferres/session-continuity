@@ -5,9 +5,11 @@ runs the real script on it as a subprocess, the way the harness calls it.
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -110,8 +112,12 @@ class HookBase(Base):
         self.project = self.dir / "project"
         self.project.mkdir()
 
-    def hook(self, tokens, event="UserPromptSubmit", session="s1", env=None):
+    def hook(self, tokens, event="UserPromptSubmit", session="s1", env=None, idle=0,
+             quiet_since=None):
         self.write_transcript([assistant(0, tokens, 0)])
+        if idle or quiet_since:
+            then = quiet_since or time.time() - idle
+            os.utime(self.transcript, (then, then))
         payload = {"hook_event_name": event, "session_id": session,
                    "transcript_path": str(self.transcript)}
         full_env = {"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)}
@@ -208,6 +214,53 @@ class ThrottleTest(HookBase):
         env = {"SESSION_CONTEXT_CHECK_SECONDS": "0"}
         self.hook(50000, event="PostToolUse", env=env)
         self.assertIn("heads-up", self.hook(110000, event="PostToolUse", env=env).stdout.lower())
+
+
+class IdleDebtTest(HookBase):
+    HOURS_2 = 2 * 3600
+
+    def owed(self, out):
+        return "checkpoint owed" in out.stdout.lower()
+
+    def write_checkpoint(self, age):
+        path = self.project / "CHECKPOINT.md"
+        path.write_text("---\ntype: session-checkpoint\nupdated: 2026-03-11\n---\n")
+        then = time.time() - age
+        os.utime(path, (then, then))
+
+    def test_a_large_session_idle_with_no_checkpoint_is_told_it_owes_one(self):
+        self.assertTrue(self.owed(self.hook(110000, idle=self.HOURS_2)))
+
+    def test_the_debt_is_said_once_per_idle_gap(self):
+        quiet_since = time.time() - self.HOURS_2
+        self.hook(110000, quiet_since=quiet_since)
+        self.assertFalse(self.owed(self.hook(110000, quiet_since=quiet_since)))
+
+    def test_a_checkpoint_newer_than_the_last_work_clears_the_debt(self):
+        self.write_checkpoint(age=60)
+        self.assertFalse(self.owed(self.hook(110000, idle=self.HOURS_2)))
+
+    def test_a_checkpoint_older_than_the_last_work_does_not(self):
+        self.write_checkpoint(age=3 * 3600)
+        self.assertTrue(self.owed(self.hook(110000, idle=self.HOURS_2)))
+
+    def test_a_small_session_owes_nothing(self):
+        self.assertFalse(self.owed(self.hook(40000, idle=self.HOURS_2)))
+
+    def test_a_session_that_was_not_idle_owes_nothing(self):
+        self.assertFalse(self.owed(self.hook(110000, idle=60)))
+
+    def test_only_a_prompt_settles_the_debt(self):
+        # The gap is measured when a person comes back; a tool call means the
+        # session was never idle in the first place.
+        self.assertFalse(self.owed(self.hook(110000, event="PostToolUse", idle=self.HOURS_2)))
+
+    def test_the_idle_gap_is_configurable(self):
+        env = {"SESSION_IDLE_SECONDS": "300"}
+        self.assertTrue(self.owed(self.hook(110000, idle=600, env=env)))
+
+    def test_the_debt_message_carries_no_number(self):
+        self.assertNotRegex(self.hook(110000, idle=self.HOURS_2).stdout, r"\d")
 
 
 if __name__ == "__main__":

@@ -130,6 +130,19 @@ both warnings are armed again for the refilled session. The messages carry
 no token count, because an agent quotes a number back as fact long after
 it stopped being true.
 
+## A checkpoint owed after an idle gap
+
+The costliest moment in a long session is the first prompt after a
+break. The prompt cache has expired, so that turn re-reads the whole
+context at full price, and everything since the last checkpoint still
+lives only in that context. When a prompt arrives after the session has
+been quiet for `SESSION_IDLE_SECONDS` (an hour by default, longer than
+the prompt cache lives under either of its settings), the context is past
+the heads-up line, and the checkpoint file has not been written since the
+session's last work, the watch tells the agent once that a checkpoint is
+owed and should come first. A checkpoint written after the last work
+settles it; the next idle gap is judged on its own.
+
 ## What the PreCompact hook deliberately does not do
 
 It does not write the checkpoint. A shell script has no idea which
@@ -160,4 +173,5 @@ safety net, not the pattern.
 | `SESSION_CHECKPOINT_ARCHIVE` | `$CLAUDE_PROJECT_DIR/.checkpoints` | Dated copies, raw transcripts, breadcrumb, context-watch state. |
 | `SESSION_CONTEXT_HEADS_UP` | `100000` | Context tokens at which the heads-up is said. |
 | `SESSION_CONTEXT_WIND_DOWN` | `150000` | Context tokens at which the wind-down is said; must be above the heads-up. |
+| `SESSION_IDLE_SECONDS` | `3600` | Quiet time after which a large session with no fresh checkpoint is told it owes one. |
 | `SESSION_CONTEXT_CHECK_SECONDS` | `60` | Least time between two checks after tool calls in one session; `0` checks after every call. |

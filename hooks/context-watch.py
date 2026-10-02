@@ -14,6 +14,12 @@ As a hook (no arguments, the harness's event JSON on stdin) it says two
 things, each once per session: a heads-up at the first threshold, so the
 agent plans a checkpoint at the next natural boundary, and a wind-down at
 the second, so it writes the checkpoint before compaction decides for it.
+On a prompt that arrives after a long idle gap, a session with a large
+context and no checkpoint written since its last work is told once that
+it owes one: the prompt cache has expired by then, so the turn re-reads
+the whole context at full price, and the work since the last checkpoint
+exists only in that context.
+
 It never blocks and always exits 0; a hook that can stop the session is a
 different tool with a different contract.
 
@@ -26,6 +32,10 @@ Configuration, all optional:
     SESSION_CONTEXT_WIND_DOWN   tokens for the wind-down  (default 150000)
     SESSION_CONTEXT_CHECK_SECONDS  least time between two checks after
                                 tool calls in one session (default 60)
+    SESSION_IDLE_SECONDS        idle gap that makes a checkpoint owed
+                                (default 3600)
+    SESSION_CHECKPOINT_FILE     the checkpoint that settles the debt
+                                (default $CLAUDE_PROJECT_DIR/CHECKPOINT.md)
     SESSION_CHECKPOINT_ARCHIVE  where per-session state is kept
                                 (default $CLAUDE_PROJECT_DIR/.checkpoints)
 
@@ -59,6 +69,11 @@ DEFAULT_WIND_DOWN = 150_000
 # the context far enough to matter.
 DEFAULT_CHECK_SECONDS = 60
 
+# An hour outlasts the prompt cache under either of its lifetimes (five
+# minutes by default, one hour extended), so by then the next turn is
+# certain to re-read the whole context at full price.
+DEFAULT_IDLE_SECONDS = 3600
+
 # No token count in either message: a number in the agent's context gets
 # quoted back as a fact long after it stopped being true, and the
 # instruction is the whole point.
@@ -68,6 +83,11 @@ HEADS_UP = ("Context heads-up: this session's context is getting large. Plan a "
 WIND_DOWN = ("Context wind-down: compaction is getting close. Rewrite the "
              "checkpoint now, finish the step in flight, and start nothing new "
              "that would not survive a compaction.")
+CHECKPOINT_OWED = ("Checkpoint owed: this session sat idle long enough for the prompt "
+                   "cache to expire, with a large context and no checkpoint written "
+                   "since its last work. Write the checkpoint before anything else. If "
+                   "the old work is finished, a fresh session resumed from the "
+                   "checkpoint is cheaper than continuing here.")
 
 
 def _last_call_usage(lines: list) -> Optional[dict]:
@@ -168,9 +188,8 @@ def save_state(session_id: str, state: dict) -> None:
     os.replace(tmp, path)
 
 
-def warning_for(tokens: int, state: dict) -> Optional[str]:
+def warning_for(tokens: int, heads_up: int, wind_down: int, state: dict) -> Optional[str]:
     """The warning this measurement earns, or None; updates state in place."""
-    heads_up, wind_down = thresholds()
     said = state.setdefault("said", [])
     if tokens < heads_up:
         # Only a compaction brings a session's context back under the first
@@ -184,6 +203,34 @@ def warning_for(tokens: int, state: dict) -> Optional[str]:
         return None
     said.extend(name for name in ("heads-up", level) if name not in said)
     return message
+
+
+def checkpoint_path() -> str:
+    project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    return os.environ.get("SESSION_CHECKPOINT_FILE") or os.path.join(project, "CHECKPOINT.md")
+
+
+def debt_for(tokens: int, heads_up: int, last_work: float, now: float,
+             state: dict) -> Optional[str]:
+    """The checkpoint-owed notice for a prompt after an idle gap, or None.
+
+    `last_work` is the transcript's modification time, which a prompt hook
+    sees before the new prompt is written: the moment the session went
+    quiet. A session counts as large from the heads-up line. Said once per
+    gap; updates state in place.
+    """
+    idle = _setting("SESSION_IDLE_SECONDS", DEFAULT_IDLE_SECONDS)
+    if tokens < heads_up or now - last_work < idle:
+        return None
+    if state.get("debt_said_for") == last_work:
+        return None
+    try:
+        if os.path.getmtime(checkpoint_path()) >= last_work:
+            return None
+    except OSError:
+        pass  # no checkpoint at all is the plainest case of one owed
+    state["debt_said_for"] = last_work
+    return CHECKPOINT_OWED
 
 
 def run_hook(event: dict) -> Optional[str]:
@@ -203,10 +250,14 @@ def run_hook(event: dict) -> Optional[str]:
         if now - float(state.get("checked_at", 0)) < interval:
             return None
         state["checked_at"] = now
-    message = warning_for(context_tokens(transcript), state)
+    tokens = context_tokens(transcript)
+    heads_up, wind_down = thresholds()
+    messages = [warning_for(tokens, heads_up, wind_down, state)]
+    if event.get("hook_event_name") == "UserPromptSubmit":
+        messages.append(debt_for(tokens, heads_up, os.path.getmtime(transcript), now, state))
     if json.dumps(state, sort_keys=True) != before:
         save_state(session_id, state)
-    return message
+    return "\n\n".join(m for m in messages if m) or None
 
 
 def emit(event: dict, message: str) -> None:
