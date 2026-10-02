@@ -4,7 +4,7 @@ When an agent hits its context limit, the built-in fix is a summary, and a summa
 
 The format and protocols work on any harness that reads files.
 
-![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg)
+![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg) ![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg) ![dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
 
 ![Illustration: a session nearing its context ceiling writes a full checkpoint; a fresh session reads it back, verifies a cited fact, and continues at depth](demo/resume.svg)
 

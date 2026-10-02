@@ -12,6 +12,7 @@
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
 ### Changed
+- Changed the README badge row to show the license, the supported Python versions and that there are no dependencies, beside the CI status.
 - Changed the usage message to go to stderr, and gave usage and unreadable-path errors their own exit code 2, so a script can tell them apart from a checkpoint that failed the lint (1). A path that is not a file is reported on stderr and the remaining files are still linted.
 - Changed what a file with an unclosed code fence reports: everything after the unclosed fence now counts as code, so a section that only had content after it is reported as empty. The fix is to close the fence.
 - Changed the linter section of the README to say which checks reject a file and which one only warns.
