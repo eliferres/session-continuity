@@ -108,11 +108,15 @@ Restart Claude Code, then check `/hooks` to confirm all of them are registered.
 It does not estimate. Every assistant row in the session transcript
 carries the usage of the model call that produced it, and the context the
 next call will re-read is that last call's input tokens plus its cache
-reads plus its cache writes. The script reads the tail of the transcript,
-takes the newest real call (skipping the zero-usage rows an API error
-leaves behind), and sums those three. A transcript's byte size is a poor
-stand-in: large tool output inflates the file without filling the context,
-and a size alarm set for one session misses the next.
+reads plus its cache writes. The script reads the transcript backwards,
+in chunks, only as far as the newest real call (skipping the zero-usage
+rows an API error leaves behind and a subagent's sidechain rows), and sums
+those three. A fixed tail is not enough, because a single tool result can
+run past a megabyte. When no call can be found the watch says nothing and
+keeps its warnings as they were, rather than reading the silence as a
+compaction. A transcript's byte size is a poor stand-in: large tool output
+inflates the file without filling the context, and a size alarm set for
+one session misses the next.
 
 You can run the measurement by hand:
 

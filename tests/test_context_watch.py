@@ -88,11 +88,23 @@ class MeasureTest(Base):
         ])
         self.assertEqual(self.measure().stdout.strip(), "101010")
 
-    def test_reads_only_the_tail_of_a_large_transcript(self):
-        # The early call is far outside the tail window; only the last one counts.
+    def test_the_newest_call_wins_in_a_large_transcript(self):
+        # The early call is several read chunks back; only the last one counts.
         filler = [user("x" * 1000) for _ in range(400)]
         self.write_transcript([assistant(1, 1, 1)] + filler + [assistant(7, 70000, 0)])
         self.assertEqual(self.measure().stdout.strip(), "70007")
+
+    def test_reads_past_a_tool_result_larger_than_the_tail(self):
+        # A single tool result can run past a megabyte, longer than any
+        # fixed tail; the last call is still there, further back.
+        self.write_transcript([assistant(2, 249300, 0), user("x" * 1_200_000)])
+        self.assertEqual(self.measure().stdout.strip(), "249302")
+
+    def test_skips_rows_from_a_side_conversation(self):
+        # Sidechain rows are a subagent's own calls, not this context.
+        self.write_transcript([assistant(1, 120000, 0),
+                               assistant(1, 9000, 0, isSidechain=True)])
+        self.assertEqual(self.measure().stdout.strip(), "120001")
 
     def test_transcript_with_no_model_call_measures_zero(self):
         self.write_transcript([user("hello")])
@@ -118,6 +130,13 @@ class HookBase(Base):
         if idle or quiet_since:
             then = quiet_since or time.time() - idle
             os.utime(self.transcript, (then, then))
+        return self.run_hook(event, session, env)
+
+    def append(self, *rows):
+        with self.transcript.open("a") as fh:
+            fh.write("".join(json.dumps(r) + "\n" for r in rows))
+
+    def run_hook(self, event="UserPromptSubmit", session="s1", env=None):
         payload = {"hook_event_name": event, "session_id": session,
                    "transcript_path": str(self.transcript)}
         full_env = {"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)}
@@ -159,6 +178,15 @@ class WarningTest(HookBase):
         self.hook(110000)
         self.assertEqual(self.hook(40000).stdout, "")
         self.assertIn("heads-up", self.hook(110000).stdout.lower())
+
+    def test_an_unmeasurable_reading_never_rearms_the_warnings(self):
+        # Reading nothing is not a compaction: a large tool result with no
+        # usage row behind it in reach must not make the wind-down repeat.
+        self.hook(160000)
+        self.append(user("x" * 1_200_000))
+        self.run_hook()
+        self.append(assistant(0, 165000, 0))
+        self.assertEqual(self.run_hook().stdout, "")
 
     def test_messages_carry_no_token_count(self):
         # A number in the message gets quoted back as fact; the instruction is the point.

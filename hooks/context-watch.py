@@ -56,9 +56,11 @@ import sys
 import time
 from typing import Optional
 
-# Only the tail is read: the last model call is near the end, and a long
-# session's transcript runs to tens of megabytes.
-TAIL_BYTES = 256 * 1024
+# The transcript is read backwards in chunks of this size and only as far
+# as the last model call: a long session's transcript runs to tens of
+# megabytes, but one tool result can also run past a megabyte, so no fixed
+# tail is safe.
+CHUNK_BYTES = 256 * 1024
 
 # Half and three quarters of the 200,000-token window most models run
 # with. Half leaves room to finish the task in hand and checkpoint at a
@@ -94,14 +96,36 @@ CHECKPOINT_OWED = ("Checkpoint owed: this session sat idle long enough for the p
                    "checkpoint is cheaper than continuing here.")
 
 
-def _last_call_usage(lines: list) -> Optional[dict]:
-    for line in reversed(lines):
-        if '"assistant"' not in line or '"usage"' not in line:
+def _lines_backward(transcript: str):
+    """Yield the transcript's lines as bytes, last line first."""
+    with open(transcript, "rb") as fh:
+        fh.seek(0, os.SEEK_END)
+        position, carry = fh.tell(), b""
+        while position > 0:
+            step = min(CHUNK_BYTES, position)
+            position -= step
+            fh.seek(position)
+            pieces = (fh.read(step) + carry).split(b"\n")
+            # The first piece may be the tail end of a longer line; it is
+            # completed by the next chunk back.
+            carry = pieces[0]
+            for line in reversed(pieces[1:]):
+                yield line
+        if carry:
+            yield carry
+
+
+def _last_call_usage(transcript: str) -> Optional[dict]:
+    for line in _lines_backward(transcript):
+        if b'"assistant"' not in line or b'"usage"' not in line:
             continue
         try:
-            row = json.loads(line)
+            row = json.loads(line.decode("utf-8", "replace"))
         except ValueError:
-            continue  # the first line of the tail is usually cut mid-row
+            continue
+        # A sidechain row is a subagent's own call, with its own context.
+        if row.get("isSidechain"):
+            continue
         message = row.get("message") or {}
         # An API error (a rate limit, an overload) is written as an assistant
         # row with zero usage. It says nothing about the context, and read
@@ -114,18 +138,15 @@ def _last_call_usage(lines: list) -> Optional[dict]:
     return None
 
 
-def context_tokens(transcript: str) -> int:
+def context_tokens(transcript: str) -> Optional[int]:
     """Tokens the last model call in the transcript read as context.
 
-    Returns 0 when the transcript holds no model call yet.
+    Returns None when the transcript holds no model call to measure, which
+    is not the same as an empty context.
     """
-    size = os.path.getsize(transcript)
-    with open(transcript, "rb") as fh:
-        fh.seek(max(0, size - TAIL_BYTES))
-        lines = fh.read().decode("utf-8", "replace").splitlines()
-    usage = _last_call_usage(lines)
+    usage = _last_call_usage(transcript)
     if usage is None:
-        return 0
+        return None
     # A turn that made several model calls reports their sum at the top
     # level, which runs about double the real context; the last message
     # iteration is the one the next call builds on.
@@ -275,6 +296,12 @@ def run_hook(event: dict) -> Optional[str]:
             return None
         state["checked_at"] = now
     tokens = context_tokens(transcript)
+    if tokens is None:
+        # Nothing measurable is not a compaction; leave the warnings armed
+        # as they are.
+        if json.dumps(state, sort_keys=True) != before:
+            save_state(session_id, state)
+        return None
     heads_up, wind_down = thresholds()
     messages = [warning_for(tokens, heads_up, wind_down, state)]
     if event.get("hook_event_name") == "UserPromptSubmit":
@@ -308,7 +335,7 @@ def main(argv: list) -> int:
         return 0
     if len(argv) == 2 and argv[0] == "--measure":
         try:
-            print(context_tokens(argv[1]))
+            print(context_tokens(argv[1]) or 0)
         except OSError as exc:
             print("context-watch: cannot read %s: %s" % (argv[1], exc.strerror), file=sys.stderr)
             return 2
