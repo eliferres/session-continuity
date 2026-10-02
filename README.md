@@ -189,7 +189,7 @@ rejects.
 - `CHECKPOINT-TEMPLATE.md`: the blank, with per-section hints. Copy it into your project.
 - `docs/anatomy.md`: the file format specification, source of truth for the block above.
 - `docs/protocol.md`: when and how to write a checkpoint, and how to rehydrate from one.
-- `docs/hooks.md`: wiring the two optional hooks into Claude Code settings.
+- `docs/hooks.md`: wiring the three optional hooks into Claude Code settings.
 - `examples/`: one realistic filled checkpoint, mid-migration, that passes the linter.
 - `hooks/`: `precompact-checkpoint.sh` archives state and stamps the
   compaction; `sessionstart-resume.sh` announces `RESUME AVAILABLE` and

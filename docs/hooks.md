@@ -14,7 +14,8 @@ directory.
 ## Install
 
 ```bash
-cp hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh hooks/context-watch.py /path/to/your/project/hooks/
+cp hooks/precompact-checkpoint.sh hooks/sessionstart-resume.sh \
+   hooks/context-watch.py /path/to/your/project/hooks/
 chmod +x /path/to/your/project/hooks/*
 echo '.checkpoints/' >> /path/to/your/project/.gitignore
 ```
@@ -192,9 +193,9 @@ session's hooks work on its own file only:
 
 - `sessionstart-resume.sh` announces only `CHECKPOINT-billing.md`, and
   its resume cue names that file. Before that file exists, it tells the
-  agent the file name to write, which the agent would otherwise not know. A session with no name is shown every
-  checkpoint in the project, newest first, each with its own cue, and the
-  person picks one.
+  agent the file name to write, which the agent would otherwise not
+  know. A session with no name is shown every checkpoint in the project,
+  newest first, each with its own cue, and the person picks one.
 - `precompact-checkpoint.sh` archives only that session's checkpoint, as
   `.checkpoints/<time>-billing-checkpoint.md`, copies its transcript to
   `.checkpoints/raw/<time>-billing.jsonl`, and leaves its own
@@ -221,7 +222,7 @@ safety net, not the pattern.
 | Variable | Default | Meaning |
 |---|---|---|
 | `SESSION_CHECKPOINT_NAME` | none | This session's name when several share a project; its checkpoint is `CHECKPOINT-<name>.md`. Letters, digits, `.`, `-` and `_` only. |
-| `SESSION_CHECKPOINT_FILE` | `$CLAUDE_PROJECT_DIR/CHECKPOINT.md` | An explicit checkpoint path; wins over the name. |
+| `SESSION_CHECKPOINT_FILE` | none | An explicit checkpoint path that wins over the name. Unset, a named session uses `$CLAUDE_PROJECT_DIR/CHECKPOINT-<name>.md` and a session with no name uses every checkpoint in the project, `CHECKPOINT.md` included. |
 | `SESSION_CHECKPOINT_ARCHIVE` | `$CLAUDE_PROJECT_DIR/.checkpoints` | Dated copies, raw transcripts, breadcrumb, context-watch state. |
 | `SESSION_CONTEXT_HEADS_UP` | `100000` | Context tokens at which the heads-up is said. |
 | `SESSION_CONTEXT_WIND_DOWN` | `150000` | Context tokens at which the wind-down is said; must be above the heads-up. |
