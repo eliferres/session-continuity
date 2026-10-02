@@ -158,6 +158,20 @@ class PreCompactTest(HookCase):
         self.assertTrue(any(n.endswith("-search-checkpoint.md") for n in names))
         self.assertTrue((self.archive / "last-compaction.txt").is_file())
 
+    def test_two_named_sessions_keep_separate_raw_transcripts(self):
+        # Two sessions compacting in the same second used to write one
+        # raw/<time>.jsonl, the second copy replacing the first.
+        for name in ("billing", "search"):
+            transcript = self.project / (name + ".jsonl")
+            transcript.write_text('{"type":"user"}\n')
+            payload = {"hook_event_name": "PreCompact", "session_id": name,
+                       "transcript_path": str(transcript)}
+            self.execute(PRE_COMPACT, payload, {"SESSION_CHECKPOINT_NAME": name})
+        raw = sorted(p.name for p in (self.archive / "raw").glob("*.jsonl"))
+        self.assertEqual(len(raw), 2, raw)
+        self.assertTrue(raw[0].endswith("-billing.jsonl"), raw)
+        self.assertTrue(raw[1].endswith("-search.jsonl"), raw)
+
     def test_a_named_session_without_its_checkpoint_leaves_the_marker(self):
         self.checkpoint("CHECKPOINT-search.md")
         self.run_hook({"SESSION_CHECKPOINT_NAME": "billing"})

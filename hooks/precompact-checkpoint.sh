@@ -63,7 +63,7 @@ if [ "$archived" -eq 0 ]; then
 fi
 
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  cp "$transcript" "$ARCHIVE/raw/$stamp.jsonl"
+  cp "$transcript" "$ARCHIVE/raw/$stamp${NAME:+-$NAME}.jsonl"
 fi
 
 # The breadcrumb the SessionStart hook compares against the checkpoint's

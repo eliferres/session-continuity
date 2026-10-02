@@ -185,7 +185,8 @@ session's hooks work on its own file only:
   checkpoint in the project, newest first, each with its own cue, and the
   person picks one.
 - `precompact-checkpoint.sh` archives only that session's checkpoint, as
-  `.checkpoints/<time>-billing-checkpoint.md`, and leaves its own
+  `.checkpoints/<time>-billing-checkpoint.md`, copies its transcript to
+  `.checkpoints/raw/<time>-billing.jsonl`, and leaves its own
   breadcrumb, `last-compaction-billing.txt`, so a compaction in one
   session never marks another's checkpoint stale. A session with no name
   archives every checkpoint and marks them all, because it cannot know
