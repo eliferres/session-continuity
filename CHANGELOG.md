@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Nothing yet.
+
+## [1.2.0](https://github.com/eliferres/session-continuity/releases/tag/v1.2.0) - 2026-10-02
+
 ### Added
 - Added `hooks/context-watch.py --measure TRANSCRIPT`, which prints how many tokens a session's context really holds, read from the last model call's usage in the transcript instead of estimated from the file's size. A file that is not a session transcript is reported on stderr with exit code 2.
 - Added a context watch hook for `UserPromptSubmit` and `PostToolUse` that tells the agent once per session to plan a checkpoint (default 100,000 tokens) and once to write it now (default 150,000), both set with `SESSION_CONTEXT_HEADS_UP` and `SESSION_CONTEXT_WIND_DOWN`. Its per-session state lives in `.checkpoints/sessions/` and is deleted after 30 days untouched.

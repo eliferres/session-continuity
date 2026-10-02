@@ -16,7 +16,7 @@ Exit codes: 0 clean, 1 lint failures, 2 usage or input error.
 
 from __future__ import annotations
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 import re
 import sys
