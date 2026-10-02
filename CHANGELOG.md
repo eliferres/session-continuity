@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Added `hooks/context-watch.py --measure TRANSCRIPT`, which prints how many tokens a session's context really holds, read from the last model call's usage in the transcript instead of estimated from the file's size.
 - Added packaging, so `pipx install git+https://github.com/eliferres/session-continuity` installs a `checkpoint-lint` command with `--version`.
 
 ### Changed
