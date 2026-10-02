@@ -89,6 +89,10 @@ The context watch is wired twice on purpose. `PostToolUse` catches a
 session filling up during a long run of tool calls with nobody typing;
 `UserPromptSubmit` catches it on your own turns. Both read the same
 per-session state, so a warning said on one is not repeated on the other.
+A warning is said only by the run that creates its marker file in
+`.checkpoints/sessions/`, an exclusive create the filesystem grants once,
+so hooks on parallel tool calls that fire at the same moment still say it
+once.
 After a tool call the check runs at most once a minute per session, so a
 busy session does not re-read its transcript hundreds of times; a prompt
 is always checked. The limit is kept per session because one shared limit

@@ -86,6 +86,8 @@ DEFAULT_IDLE_SECONDS = 3600
 # by one file per session forever.
 STATE_KEEP_SECONDS = 30 * 86400
 
+LEVELS = ("heads-up", "wind-down")
+
 # No token count in either message: a number in the agent's context gets
 # quoted back as a fact long after it stopped being true, and the
 # instruction is the whole point.
@@ -211,12 +213,41 @@ def state_dir() -> str:
     return os.path.join(archive, "sessions")
 
 
-def _state_path(session_id: str) -> str:
+def _session_file(session_id: str, suffix: str) -> str:
     # The id names a file, so anything that is not a plain token is hashed
     # rather than trusted as a path component.
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", session_id):
         session_id = hashlib.sha256(session_id.encode()).hexdigest()[:32]
-    return os.path.join(state_dir(), session_id + ".json")
+    return os.path.join(state_dir(), session_id + suffix)
+
+
+def _state_path(session_id: str) -> str:
+    return _session_file(session_id, ".json")
+
+
+def _claim(session_id: str, level: str) -> bool:
+    """True for exactly one caller per session and level until re-armed.
+
+    Hooks on parallel tool calls run at the same moment and would all read
+    the same state before any of them wrote it back, so the right to speak
+    is an exclusive file creation, which the filesystem grants once.
+    """
+    path = _session_file(session_id, "." + level)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        return False
+    _prune(os.path.dirname(path))
+    return True
+
+
+def _rearm(session_id: str) -> None:
+    for level in LEVELS:
+        try:
+            os.remove(_session_file(session_id, "." + level))
+        except FileNotFoundError:
+            pass
 
 
 def load_state(session_id: str) -> dict:
@@ -248,21 +279,21 @@ def _prune(folder: str) -> None:
             pass  # another session pruned it first
 
 
-def warning_for(tokens: int, heads_up: int, wind_down: int, state: dict) -> Optional[str]:
-    """The warning this measurement earns, or None; updates state in place."""
-    said = state.setdefault("said", [])
+def warning_for(tokens: int, heads_up: int, wind_down: int,
+                session_id: str) -> Optional[str]:
+    """The warning this measurement earns and no other run has said, or None."""
     if tokens < heads_up:
         # Only a compaction brings a session's context back under the first
         # line, and the refilled session should hear both warnings again.
-        said.clear()
+        _rearm(session_id)
         return None
+    if tokens < wind_down:
+        return HEADS_UP if _claim(session_id, "heads-up") else None
     # A session that jumps straight past both lines hears only the wind-down;
     # the heads-up would arrive too late to mean anything.
-    level, message = ("wind-down", WIND_DOWN) if tokens >= wind_down else ("heads-up", HEADS_UP)
-    if level in said:
-        return None
-    said.extend(name for name in ("heads-up", level) if name not in said)
-    return message
+    said = _claim(session_id, "wind-down")
+    _claim(session_id, "heads-up")
+    return WIND_DOWN if said else None
 
 
 def checkpoint_mtime() -> Optional[float]:
@@ -338,7 +369,7 @@ def run_hook(event: dict) -> Optional[str]:
             save_state(session_id, state)
         return None
     heads_up, wind_down = thresholds()
-    messages = [warning_for(tokens, heads_up, wind_down, state)]
+    messages = [warning_for(tokens, heads_up, wind_down, session_id)]
     if event.get("hook_event_name") == "UserPromptSubmit" and last_work is not None:
         messages.append(debt_for(tokens, heads_up, last_work, now, state))
     if json.dumps(state, sort_keys=True) != before:

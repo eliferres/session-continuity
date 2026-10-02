@@ -236,7 +236,30 @@ class StateTest(HookBase):
         self.hook(110000)
         self.assertFalse(old.exists())
         self.assertTrue(recent.exists())
-        self.assertTrue((sessions / "s1.json").exists())
+        self.assertTrue(list(sessions.glob("s1*")))
+
+
+class ConcurrencyTest(HookBase):
+    def test_parallel_tool_calls_say_the_wind_down_once(self):
+        # Parallel tool calls fire their hooks at the same moment; each read
+        # the same empty state and every one of them printed the warning.
+        # Rows after the call keep each run reading long enough for the runs
+        # to overlap, as hooks on parallel tool calls do.
+        filler = [{"type": "system", "subtype": "info"}] * 50_000
+        self.write_transcript([assistant(0, 160000, 0)] + filler)
+        event = self.dir / "event.json"
+        event.write_text(json.dumps({"hook_event_name": "PostToolUse", "session_id": "s1",
+                                     "transcript_path": str(self.transcript)}))
+        env = {"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)}
+        # Every run gets its event from a file, so all of them start at once
+        # instead of waiting in turn for their stdin.
+        runs = []
+        for _ in range(8):
+            with event.open() as stdin:
+                runs.append(subprocess.Popen([sys.executable, str(SCRIPT)], stdin=stdin,
+                                             stdout=subprocess.PIPE, text=True, env=env))
+        outputs = [run.communicate()[0] for run in runs]
+        self.assertEqual(sum("wind-down" in out.lower() for out in outputs), 1, outputs)
 
 
 class ThrottleTest(HookBase):
