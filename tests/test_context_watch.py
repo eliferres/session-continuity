@@ -136,6 +136,25 @@ class MeasureTest(Base):
         self.assertIn("notes.md", out.stderr)
         self.assertEqual(len(out.stderr.strip().splitlines()), 1)
 
+    def test_a_row_nested_too_deep_to_decode_is_a_usage_error(self):
+        depth = 1_000_000  # past every supported version's decoder limit
+        self.transcript.write_text('{"type":"assistant","x":' + "[" * depth + "]" * depth + "}\n")
+        out = self.measure()
+        self.assertEqual(out.returncode, 2)
+        self.assertEqual(out.stdout, "")
+        self.assertNotIn("Traceback", out.stderr)
+        self.assertEqual(len(out.stderr.strip().splitlines()), 1)
+
+    def test_a_row_nested_too_deep_keeps_the_hook_silent(self):
+        depth = 1_000_000  # past every supported version's decoder limit
+        self.transcript.write_text('{"type":"assistant","x":' + "[" * depth + "]" * depth + "}\n")
+        payload = {"hook_event_name": "PostToolUse", "session_id": "s",
+                   "transcript_path": str(self.transcript)}
+        out = subprocess.run([sys.executable, str(SCRIPT)], input=json.dumps(payload),
+                             capture_output=True, text=True,
+                             env={"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.dir)})
+        self.assertEqual((out.returncode, out.stdout, out.stderr), (0, "", ""))
+
     def test_missing_transcript_is_a_usage_error(self):
         out = self.measure(self.dir / "nope.jsonl")
         self.assertEqual(out.returncode, 2)

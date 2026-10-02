@@ -419,6 +419,8 @@ def main(argv: list) -> int:
             message = run_hook(event) if isinstance(event, dict) else None
             if message:
                 emit(event, message)
+        except RecursionError:
+            pass  # a row nested too deep to decode; nothing to measure, nothing to say
         except Exception as exc:  # noqa: BLE001 - a broken hook must not break the session
             print("context-watch: %s" % exc, file=sys.stderr)
         return 0
@@ -433,6 +435,12 @@ def main(argv: list) -> int:
             print(tokens or 0)
         except OSError as exc:
             print("context-watch: cannot read %s: %s" % (argv[1], exc.strerror), file=sys.stderr)
+            return 2
+        except RecursionError:
+            # The json module decodes recursively, so a row nested a few
+            # thousand levels deep cannot be read at all.
+            print("context-watch: %s holds a row nested too deeply to decode" % argv[1],
+                  file=sys.stderr)
             return 2
         return 0
     print("usage: context-watch.py [--measure TRANSCRIPT.jsonl] (no arguments: hook event on stdin)",
