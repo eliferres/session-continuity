@@ -42,7 +42,8 @@ Configuration, all optional:
     SESSION_CHECKPOINT_ARCHIVE  where per-session state is kept
                                 (default $CLAUDE_PROJECT_DIR/.checkpoints)
 
-Stdlib only. Exit codes for --measure: 0 measured, 2 usage or input error.
+Stdlib only. Exit codes for --measure: 0 measured, 2 usage or input error
+(including a file that is not a session transcript).
 """
 
 from __future__ import annotations
@@ -134,7 +135,9 @@ def _epoch(stamp: object) -> Optional[float]:
 
 
 def scan(transcript: str) -> tuple:
-    """(usage of the last model call, time of the last work), either None.
+    """(context tokens of the last model call, time of the last work).
+
+    Either may be None: no readable model call, or no timestamped row.
 
     The last work is the newest assistant or system row's own timestamp.
     The file's modification time cannot stand in for it: the harness
@@ -157,21 +160,23 @@ def scan(transcript: str) -> tuple:
         # A sidechain row is a subagent's own call, with its own context.
         if row.get("type") != "assistant" or row.get("isSidechain"):
             continue
-        message = row.get("message") or {}
+        message = row.get("message")
+        if not isinstance(message, dict):
+            continue
         # An API error (a rate limit, an overload) is written as an assistant
         # row with zero usage. It says nothing about the context, and read
         # as if it did, the session would look empty.
         if row.get("isApiErrorMessage") or message.get("model") == "<synthetic>":
             continue
-        usage = message.get("usage")
-        if usage:
-            return usage, last_work
+        tokens = _call_tokens(message.get("usage"))
+        if tokens is not None:
+            return tokens, last_work
     return None, last_work
 
 
-def tokens_from(usage: Optional[dict]) -> Optional[int]:
-    """Tokens the call with this usage read as context; None for no call."""
-    if usage is None:
+def _call_tokens(usage: object) -> Optional[int]:
+    """Tokens a call with this usage read as context; None if unreadable."""
+    if not isinstance(usage, dict) or not usage:
         return None
     # A turn that made several model calls reports their sum at the top
     # level, which runs about double the real context; the last message
@@ -181,9 +186,28 @@ def tokens_from(usage: Optional[dict]) -> Optional[int]:
         calls = [i for i in iterations if isinstance(i, dict) and i.get("type") == "message"]
         if calls:
             usage = calls[-1]
-    return (usage.get("input_tokens", 0)
-            + usage.get("cache_read_input_tokens", 0)
-            + usage.get("cache_creation_input_tokens", 0))
+    counts = [usage.get(field, 0) for field in
+              ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")]
+    # A row with a count that is not a whole number is damaged, not empty;
+    # skipping it lets an older, readable call answer instead.
+    if not all(isinstance(n, int) and not isinstance(n, bool) for n in counts):
+        return None
+    return sum(counts)
+
+
+def _is_transcript(path: str) -> bool:
+    """Whether the file opens with the harness's JSON rows."""
+    with open(path, "rb") as fh:
+        for number, line in enumerate(fh):
+            if number >= 50:
+                break
+            try:
+                row = json.loads(line.decode("utf-8", "replace"))
+            except ValueError:
+                continue
+            if isinstance(row, dict) and "type" in row:
+                return True
+    return False
 
 
 def _setting(name: str, default: int, minimum: int = 1) -> int:
@@ -360,8 +384,7 @@ def run_hook(event: dict) -> Optional[str]:
         if now - float(state.get("checked_at", 0)) < interval:
             return None
         state["checked_at"] = now
-    usage, last_work = scan(transcript)
-    tokens = tokens_from(usage)
+    tokens, last_work = scan(transcript)
     if tokens is None:
         # Nothing measurable is not a compaction; leave the warnings armed
         # as they are.
@@ -401,7 +424,13 @@ def main(argv: list) -> int:
         return 0
     if len(argv) == 2 and argv[0] == "--measure":
         try:
-            print(tokens_from(scan(argv[1])[0]) or 0)
+            tokens = scan(argv[1])[0]
+            if tokens is None and not _is_transcript(argv[1]):
+                print("context-watch: %s is not a session transcript (no JSON rows)" % argv[1],
+                      file=sys.stderr)
+                return 2
+            # A transcript with no model call yet has an empty context.
+            print(tokens or 0)
         except OSError as exc:
             print("context-watch: cannot read %s: %s" % (argv[1], exc.strerror), file=sys.stderr)
             return 2

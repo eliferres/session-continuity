@@ -115,6 +115,27 @@ class MeasureTest(Base):
         self.write_transcript([user("hello")])
         self.assertEqual(self.measure().stdout.strip(), "0")
 
+    def test_malformed_rows_are_skipped_without_a_traceback(self):
+        self.write_transcript([
+            assistant(0, 50000, 0),
+            {"type": "assistant", "message": "assistant usage"},
+            {"type": "assistant", "message": {"usage": "none"}},
+            {"type": "assistant", "message": {"usage": {"input_tokens": None}}},
+            assistant(0, 0, 0, usage_extra={"iterations": ["usage", {"type": "message",
+                                                                     "input_tokens": "1"}]}),
+        ])
+        out = self.measure()
+        self.assertEqual((out.returncode, out.stdout.strip(), out.stderr), (0, "50000", ""))
+
+    def test_a_file_that_is_not_a_transcript_is_a_usage_error(self):
+        notes = self.dir / "notes.md"
+        notes.write_text("# Notes\n\nNothing here mentions an assistant's usage.\n")
+        out = self.measure(notes)
+        self.assertEqual(out.returncode, 2)
+        self.assertEqual(out.stdout, "")
+        self.assertIn("notes.md", out.stderr)
+        self.assertEqual(len(out.stderr.strip().splitlines()), 1)
+
     def test_missing_transcript_is_a_usage_error(self):
         out = self.measure(self.dir / "nope.jsonl")
         self.assertEqual(out.returncode, 2)

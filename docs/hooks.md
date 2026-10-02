@@ -130,6 +130,11 @@ You can run the measurement by hand:
 python3 hooks/context-watch.py --measure ~/.claude/projects/<project>/<session-id>.jsonl
 ```
 
+It prints the token count and exits 0; a transcript with no model call
+yet prints 0. Damaged rows are skipped in favour of the newest readable
+call. A path it cannot read, or a file that is not a session transcript,
+is one line on stderr and exit 2.
+
 The defaults are half and three quarters of the 200,000-token window most
 models run with: half leaves room to finish the task in hand and
 checkpoint at a natural boundary, three quarters still leaves room for a

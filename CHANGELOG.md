@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- Added `hooks/context-watch.py --measure TRANSCRIPT`, which prints how many tokens a session's context really holds, read from the last model call's usage in the transcript instead of estimated from the file's size.
+- Added `hooks/context-watch.py --measure TRANSCRIPT`, which prints how many tokens a session's context really holds, read from the last model call's usage in the transcript instead of estimated from the file's size. A file that is not a session transcript is reported on stderr with exit code 2.
 - Added a context watch hook for `UserPromptSubmit` and `PostToolUse` that tells the agent once per session to plan a checkpoint (default 100,000 tokens) and once to write it now (default 150,000), both set with `SESSION_CONTEXT_HEADS_UP` and `SESSION_CONTEXT_WIND_DOWN`. Its per-session state lives in `.checkpoints/sessions/` and is deleted after 30 days untouched.
 - Added a per-session limit on how often the context watch checks after tool calls (once a minute by default, `SESSION_CONTEXT_CHECK_SECONDS`), so a busy session does not re-read its transcript on every call and parallel sessions never mute each other.
 - Added a one-time notice when you come back to a large session after an idle hour (`SESSION_IDLE_SECONDS`) and its checkpoint is older than its last work: the agent is told to write the checkpoint before anything else.
