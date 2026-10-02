@@ -145,7 +145,11 @@ the prompt cache lives under either of its settings), the context is past
 the heads-up line, and the checkpoint file has not been written since the
 session's last work, the watch tells the agent once that a checkpoint is
 owed and should come first. A checkpoint written after the last work
-settles it; the next idle gap is judged on its own.
+settles it; the next idle gap is judged on its own. The session's last work
+is the timestamp on its newest assistant or system row, not the
+transcript file's modification time: the harness writes your new prompt
+into the transcript before the hook runs, so the file always looks fresh
+at the moment the gap is measured.
 
 ## What the PreCompact hook deliberately does not do
 

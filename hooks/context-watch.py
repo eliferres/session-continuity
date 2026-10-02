@@ -54,6 +54,7 @@ import glob
 import re
 import sys
 import time
+from datetime import datetime
 from typing import Optional
 
 # The transcript is read backwards in chunks of this size and only as far
@@ -115,16 +116,39 @@ def _lines_backward(transcript: str):
             yield carry
 
 
-def _last_call_usage(transcript: str) -> Optional[dict]:
+def _epoch(stamp: object) -> Optional[float]:
+    """Seconds since the epoch for a row's ISO 8601 timestamp, or None."""
+    if not isinstance(stamp, str):
+        return None
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def scan(transcript: str) -> tuple:
+    """(usage of the last model call, time of the last work), either None.
+
+    The last work is the newest assistant or system row's own timestamp.
+    The file's modification time cannot stand in for it: the harness
+    writes a new prompt into the transcript before the prompt hook runs,
+    so the file always looks freshly touched at exactly the moment the
+    idle gap is measured.
+    """
+    last_work = None
     for line in _lines_backward(transcript):
-        if b'"assistant"' not in line or b'"usage"' not in line:
+        if b'"assistant"' not in line and b'"system"' not in line:
             continue
         try:
             row = json.loads(line.decode("utf-8", "replace"))
         except ValueError:
             continue
+        if not isinstance(row, dict) or row.get("type") not in ("assistant", "system"):
+            continue
+        if last_work is None:
+            last_work = _epoch(row.get("timestamp"))
         # A sidechain row is a subagent's own call, with its own context.
-        if row.get("isSidechain"):
+        if row.get("type") != "assistant" or row.get("isSidechain"):
             continue
         message = row.get("message") or {}
         # An API error (a rate limit, an overload) is written as an assistant
@@ -134,17 +158,12 @@ def _last_call_usage(transcript: str) -> Optional[dict]:
             continue
         usage = message.get("usage")
         if usage:
-            return usage
-    return None
+            return usage, last_work
+    return None, last_work
 
 
-def context_tokens(transcript: str) -> Optional[int]:
-    """Tokens the last model call in the transcript read as context.
-
-    Returns None when the transcript holds no model call to measure, which
-    is not the same as an empty context.
-    """
-    usage = _last_call_usage(transcript)
+def tokens_from(usage: Optional[dict]) -> Optional[int]:
+    """Tokens the call with this usage read as context; None for no call."""
     if usage is None:
         return None
     # A turn that made several model calls reports their sum at the top
@@ -260,10 +279,9 @@ def debt_for(tokens: int, heads_up: int, last_work: float, now: float,
              state: dict) -> Optional[str]:
     """The checkpoint-owed notice for a prompt after an idle gap, or None.
 
-    `last_work` is the transcript's modification time, which a prompt hook
-    sees before the new prompt is written: the moment the session went
-    quiet. A session counts as large from the heads-up line. Said once per
-    gap; updates state in place.
+    `last_work` is when the session last did anything, from the
+    transcript's own row timestamps. A session counts as large from the
+    heads-up line. Said once per gap; updates state in place.
     """
     idle = _setting("SESSION_IDLE_SECONDS", DEFAULT_IDLE_SECONDS)
     if tokens < heads_up or now - last_work < idle:
@@ -295,7 +313,8 @@ def run_hook(event: dict) -> Optional[str]:
         if now - float(state.get("checked_at", 0)) < interval:
             return None
         state["checked_at"] = now
-    tokens = context_tokens(transcript)
+    usage, last_work = scan(transcript)
+    tokens = tokens_from(usage)
     if tokens is None:
         # Nothing measurable is not a compaction; leave the warnings armed
         # as they are.
@@ -304,8 +323,8 @@ def run_hook(event: dict) -> Optional[str]:
         return None
     heads_up, wind_down = thresholds()
     messages = [warning_for(tokens, heads_up, wind_down, state)]
-    if event.get("hook_event_name") == "UserPromptSubmit":
-        messages.append(debt_for(tokens, heads_up, os.path.getmtime(transcript), now, state))
+    if event.get("hook_event_name") == "UserPromptSubmit" and last_work is not None:
+        messages.append(debt_for(tokens, heads_up, last_work, now, state))
     if json.dumps(state, sort_keys=True) != before:
         save_state(session_id, state)
     return "\n\n".join(m for m in messages if m) or None
@@ -335,7 +354,7 @@ def main(argv: list) -> int:
         return 0
     if len(argv) == 2 and argv[0] == "--measure":
         try:
-            print(context_tokens(argv[1]) or 0)
+            print(tokens_from(scan(argv[1])[0]) or 0)
         except OSError as exc:
             print("context-watch: cannot read %s: %s" % (argv[1], exc.strerror), file=sys.stderr)
             return 2

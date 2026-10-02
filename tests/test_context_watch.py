@@ -30,6 +30,11 @@ def assistant(input_tokens, cache_read=0, cache_write=0, **extra):
     return row
 
 
+def iso(epoch):
+    """A row timestamp in the harness's format: UTC, milliseconds, Z."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(epoch)) + ".000Z"
+
+
 def user(text):
     return {"type": "user", "message": {"role": "user", "content": text}}
 
@@ -126,10 +131,9 @@ class HookBase(Base):
 
     def hook(self, tokens, event="UserPromptSubmit", session="s1", env=None, idle=0,
              quiet_since=None):
-        self.write_transcript([assistant(0, tokens, 0)])
-        if idle or quiet_since:
-            then = quiet_since or time.time() - idle
-            os.utime(self.transcript, (then, then))
+        then = quiet_since or time.time() - idle
+        self.write_transcript([assistant(0, tokens, 0, timestamp=iso(then))])
+        os.utime(self.transcript, (then, then))
         return self.run_hook(event, session, env)
 
     def append(self, *rows):
@@ -258,6 +262,21 @@ class IdleDebtTest(HookBase):
 
     def test_a_large_session_idle_with_no_checkpoint_is_told_it_owes_one(self):
         self.assertTrue(self.owed(self.hook(110000, idle=self.HOURS_2)))
+
+    def test_the_prompt_row_written_before_the_hook_does_not_hide_the_gap(self):
+        # The harness writes the new prompt into the transcript before the
+        # prompt hook runs, so the file always looks freshly touched; the
+        # gap has to come from the last assistant row's own timestamp.
+        self.write_transcript([assistant(0, 110000, 0, timestamp=iso(time.time() - self.HOURS_2))])
+        self.append(dict(user("back again"), timestamp=iso(time.time())))
+        self.assertTrue(self.owed(self.run_hook()))
+
+    def test_a_system_row_after_the_last_call_counts_as_work(self):
+        self.write_transcript([
+            assistant(0, 110000, 0, timestamp=iso(time.time() - self.HOURS_2)),
+            {"type": "system", "subtype": "info", "timestamp": iso(time.time() - 60)},
+        ])
+        self.assertFalse(self.owed(self.run_hook()))
 
     def test_the_debt_is_said_once_per_idle_gap(self):
         quiet_since = time.time() - self.HOURS_2
