@@ -81,6 +81,11 @@ DEFAULT_CHECK_SECONDS = 60
 # certain to re-read the whole context at full price.
 DEFAULT_IDLE_SECONDS = 3600
 
+# A session's state is only useful while the session can still be resumed;
+# a month untouched means it is over, and the folder would otherwise grow
+# by one file per session forever.
+STATE_KEEP_SECONDS = 30 * 86400
+
 # No token count in either message: a number in the agent's context gets
 # quoted back as a fact long after it stopped being true, and the
 # instruction is the whole point.
@@ -230,6 +235,17 @@ def save_state(session_id: str, state: dict) -> None:
     with open(tmp, "w") as fh:
         json.dump(state, fh)
     os.replace(tmp, path)
+    _prune(os.path.dirname(path))
+
+
+def _prune(folder: str) -> None:
+    cutoff = time.time() - STATE_KEEP_SECONDS
+    for entry in os.scandir(folder):
+        try:
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                os.remove(entry.path)
+        except OSError:
+            pass  # another session pruned it first
 
 
 def warning_for(tokens: int, heads_up: int, wind_down: int, state: dict) -> Optional[str]:

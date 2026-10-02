@@ -224,6 +224,21 @@ class WarningTest(HookBase):
         self.assertEqual((out.returncode, out.stdout), (0, ""))
 
 
+class StateTest(HookBase):
+    def test_state_untouched_for_thirty_days_is_pruned_on_save(self):
+        sessions = self.project / ".checkpoints" / "sessions"
+        sessions.mkdir(parents=True)
+        old, recent = sessions / "old.json", sessions / "recent.json"
+        for path, days in ((old, 31), (recent, 10)):
+            path.write_text("{}")
+            then = time.time() - days * 86400
+            os.utime(path, (then, then))
+        self.hook(110000)
+        self.assertFalse(old.exists())
+        self.assertTrue(recent.exists())
+        self.assertTrue((sessions / "s1.json").exists())
+
+
 class ThrottleTest(HookBase):
     def test_tool_calls_are_checked_at_most_once_a_minute_per_session(self):
         # A session runs hundreds of tool calls; reading the transcript after

@@ -22,7 +22,9 @@ echo '.checkpoints/' >> /path/to/your/project/.gitignore
 The gitignore line matters: the archive holds raw session transcripts,
 which can contain anything you and the agent discussed — keep it out of
 version control. The context watch keeps its small per-session state in
-`.checkpoints/sessions/` under the same rule.
+`.checkpoints/sessions/` under the same rule, and deletes any of it left
+untouched for 30 days, so the folder does not grow by one file per
+session forever.
 
 Then add this to `.claude/settings.json` in that project (or to
 `~/.claude/settings.json` to run everywhere):
