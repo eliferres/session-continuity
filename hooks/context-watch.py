@@ -24,6 +24,8 @@ Usage:
 Configuration, all optional:
     SESSION_CONTEXT_HEADS_UP    tokens for the heads-up   (default 100000)
     SESSION_CONTEXT_WIND_DOWN   tokens for the wind-down  (default 150000)
+    SESSION_CONTEXT_CHECK_SECONDS  least time between two checks after
+                                tool calls in one session (default 60)
     SESSION_CHECKPOINT_ARCHIVE  where per-session state is kept
                                 (default $CLAUDE_PROJECT_DIR/.checkpoints)
 
@@ -37,6 +39,7 @@ import json
 import os
 import re
 import sys
+import time
 from typing import Optional
 
 # Only the tail is read: the last model call is near the end, and a long
@@ -50,6 +53,11 @@ TAIL_BYTES = 256 * 1024
 # larger window, raise both.
 DEFAULT_HEADS_UP = 100_000
 DEFAULT_WIND_DOWN = 150_000
+
+# After a tool call the hook checks at most once a minute per session: a
+# busy session makes hundreds of calls, and a minute of work rarely moves
+# the context far enough to matter.
+DEFAULT_CHECK_SECONDS = 60
 
 # No token count in either message: a number in the agent's context gets
 # quoted back as a fact long after it stopped being true, and the
@@ -107,20 +115,20 @@ def context_tokens(transcript: str) -> int:
             + usage.get("cache_creation_input_tokens", 0))
 
 
-def _threshold(name: str, default: int) -> int:
+def _setting(name: str, default: int, minimum: int = 1) -> int:
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
-    if re.fullmatch(r"[0-9]+", raw) and int(raw) > 0:
+    if re.fullmatch(r"[0-9]+", raw) and int(raw) >= minimum:
         return int(raw)
-    print("context-watch: %s=%r is not a positive whole number; using %d"
-          % (name, raw, default), file=sys.stderr)
+    print("context-watch: %s=%r is not a whole number of at least %d; using %d"
+          % (name, raw, minimum, default), file=sys.stderr)
     return default
 
 
 def thresholds() -> tuple:
-    heads_up = _threshold("SESSION_CONTEXT_HEADS_UP", DEFAULT_HEADS_UP)
-    wind_down = _threshold("SESSION_CONTEXT_WIND_DOWN", DEFAULT_WIND_DOWN)
+    heads_up = _setting("SESSION_CONTEXT_HEADS_UP", DEFAULT_HEADS_UP)
+    wind_down = _setting("SESSION_CONTEXT_WIND_DOWN", DEFAULT_WIND_DOWN)
     if heads_up >= wind_down:
         print("context-watch: the heads-up threshold must be below the wind-down "
               "threshold; using the defaults", file=sys.stderr)
@@ -185,6 +193,16 @@ def run_hook(event: dict) -> Optional[str]:
         return None
     state = load_state(session_id)
     before = json.dumps(state, sort_keys=True)
+    now = time.time()
+    # A prompt is always checked: prompts are few, and the person typing is
+    # the one who should see the warning. Only tool calls are rate-limited,
+    # and per session, because one gate shared by every session let any
+    # session's check mute all the others running in parallel.
+    if event.get("hook_event_name") != "UserPromptSubmit":
+        interval = _setting("SESSION_CONTEXT_CHECK_SECONDS", DEFAULT_CHECK_SECONDS, minimum=0)
+        if now - float(state.get("checked_at", 0)) < interval:
+            return None
+        state["checked_at"] = now
     message = warning_for(context_tokens(transcript), state)
     if json.dumps(state, sort_keys=True) != before:
         save_state(session_id, state)

@@ -87,6 +87,11 @@ The context watch is wired twice on purpose. `PostToolUse` catches a
 session filling up during a long run of tool calls with nobody typing;
 `UserPromptSubmit` catches it on your own turns. Both read the same
 per-session state, so a warning said on one is not repeated on the other.
+After a tool call the check runs at most once a minute per session, so a
+busy session does not re-read its transcript hundreds of times; a prompt
+is always checked. The limit is kept per session because one shared limit
+lets whichever session checked last mute every other session running in
+parallel, which is exactly when context fills fastest.
 
 Restart Claude Code, then check `/hooks` to confirm all of them are registered.
 
@@ -155,3 +160,4 @@ safety net, not the pattern.
 | `SESSION_CHECKPOINT_ARCHIVE` | `$CLAUDE_PROJECT_DIR/.checkpoints` | Dated copies, raw transcripts, breadcrumb, context-watch state. |
 | `SESSION_CONTEXT_HEADS_UP` | `100000` | Context tokens at which the heads-up is said. |
 | `SESSION_CONTEXT_WIND_DOWN` | `150000` | Context tokens at which the wind-down is said; must be above the heads-up. |
+| `SESSION_CONTEXT_CHECK_SECONDS` | `60` | Least time between two checks after tool calls in one session; `0` checks after every call. |

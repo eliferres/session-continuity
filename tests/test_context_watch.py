@@ -104,7 +104,7 @@ class MeasureTest(Base):
         self.assertEqual(len(out.stderr.strip().splitlines()), 1)
 
 
-class WarningTest(Base):
+class HookBase(Base):
     def setUp(self):
         super().setUp()
         self.project = self.dir / "project"
@@ -121,6 +121,8 @@ class WarningTest(Base):
         self.assertEqual(out.returncode, 0, out.stderr)
         return out
 
+
+class WarningTest(HookBase):
     def test_below_the_first_threshold_says_nothing(self):
         self.assertEqual(self.hook(50000).stdout, "")
 
@@ -182,6 +184,30 @@ class WarningTest(Base):
                              capture_output=True, text=True,
                              env={"PATH": "/usr/bin:/bin", "CLAUDE_PROJECT_DIR": str(self.project)})
         self.assertEqual((out.returncode, out.stdout), (0, ""))
+
+
+class ThrottleTest(HookBase):
+    def test_tool_calls_are_checked_at_most_once_a_minute_per_session(self):
+        # A session runs hundreds of tool calls; reading the transcript after
+        # each one is wasted work when nothing can have changed much.
+        self.hook(50000, event="PostToolUse")
+        self.assertEqual(self.hook(110000, event="PostToolUse").stdout, "")
+
+    def test_a_prompt_is_always_checked(self):
+        self.hook(50000, event="PostToolUse")
+        self.assertIn("heads-up", self.hook(110000).stdout.lower())
+
+    def test_one_session_never_silences_another(self):
+        # The gate is per session: a shared one let any session's check
+        # mute every parallel session for the whole window.
+        self.hook(50000, event="PostToolUse", session="a")
+        out = self.hook(110000, event="PostToolUse", session="b")
+        self.assertIn("heads-up", out.stdout.lower())
+
+    def test_the_interval_is_configurable(self):
+        env = {"SESSION_CONTEXT_CHECK_SECONDS": "0"}
+        self.hook(50000, event="PostToolUse", env=env)
+        self.assertIn("heads-up", self.hook(110000, event="PostToolUse", env=env).stdout.lower())
 
 
 if __name__ == "__main__":
