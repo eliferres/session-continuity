@@ -2,9 +2,11 @@
 
 session-continuity carries an agent's work across a context reset: a specified checkpoint file, hooks that catch the compaction you did not see coming, and a linter that checks the file.
 
-![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg) ![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg) ![dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
+[![ci](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml/badge.svg)](https://github.com/eliferres/session-continuity/actions/workflows/ci.yml) ![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg) ![dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
 
 ![Illustration: a session nearing its context ceiling writes a full checkpoint; a fresh session reads it back, verifies a cited fact, and continues at depth](demo/resume.svg)
+
+The [fde-agent-skills](https://github.com/eliferres/fde-agent-skills) library documents the working methods behind this tool and its sibling tools as agent skills.
 
 ## What it does
 
